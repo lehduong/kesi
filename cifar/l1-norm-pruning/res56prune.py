@@ -43,8 +43,7 @@ if args.model:
         checkpoint = torch.load(args.model)
         args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
-        if args.pruned:
-            model = resnet(dataset=args.dataset, depth=args.depth, cfg=checkpoint['cfg'])
+        model = resnet(dataset=args.dataset, depth=args.depth, cfg=checkpoint['cfg'])
         model.load_state_dict(checkpoint['state_dict'])
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.model, checkpoint['epoch'], best_prec1))

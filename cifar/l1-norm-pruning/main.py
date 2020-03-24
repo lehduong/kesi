@@ -99,6 +99,7 @@ if args.cuda:
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 120], gamma=0.1)
 
 if args.resume:
     if os.path.isfile(args.resume):
@@ -133,6 +134,7 @@ def train(epoch):
             print('Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss))
+    lr_scheduler.step()
 
 def test():
     model.eval()
@@ -161,9 +163,6 @@ def save_checkpoint(state, is_best, filepath):
 
 best_prec1 = 0.
 for epoch in range(args.start_epoch, args.epochs):
-    if epoch in [args.epochs*0.5, args.epochs*0.75]:
-        for param_group in optimizer.param_groups:
-            param_group['lr'] *= 0.1
     train(epoch)
     prec1 = test()
     is_best = prec1 > best_prec1
