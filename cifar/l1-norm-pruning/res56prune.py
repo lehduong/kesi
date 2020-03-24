@@ -14,7 +14,7 @@ from models import *
 parser = argparse.ArgumentParser(description='PyTorch Slimming CIFAR prune')
 parser.add_argument('--dataset', type=str, default='cifar10',
                     help='training dataset (default: cifar10)')
-arser.add_argument('--test-batch-size', type=int, default=256, metavar='N',
+parser.add_argument('--test-batch-size', type=int, default=256, metavar='N',
                     help='input batch size for testing (default: 256)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
@@ -49,7 +49,7 @@ if args.model:
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.model, checkpoint['epoch'], best_prec1))
     else:
-        print("=> no checkpoint found at '{}'".format(args.resume))
+        print("=> no checkpoint found at '{}'".format(args.model))
 
 if args.cuda:
     model.cuda()
