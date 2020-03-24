@@ -24,6 +24,13 @@ python res110prune.py --dataset cifar10 -v A --model [PATH TO THE MODEL] --save 
 ```
 Here in `res56prune.py` and `res110prune.py`, the `-v` argument is `A` or `B`, which refers to the naming of the pruned model in the original paper. The pruned model will be named `pruned.pth.tar`.
 
+**Importance**: To pruned a saved checkpoint of pruned network add `pruned` option to the cmd:
+```shell
+python vggprune.py --pruned true --dataset cifar10 --model [PATH TO THE MODEL] --save [DIRECTORY TO STORE RESULT]
+python res56prune.py --pruned true --dataset cifar10 -v A --model [PATH TO THE MODEL] --save [DIRECTORY TO STORE RESULT]
+python res110prune.py --pruned true --dataset cifar10 -v A --model [PATH TO THE MODEL] --save [DIRECTORY TO STORE RESULT]
+```
+
 ## Fine-tune
 
 ```shell

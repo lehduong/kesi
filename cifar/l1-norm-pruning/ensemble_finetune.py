@@ -129,6 +129,7 @@ if args.cuda:
         m.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, gamma=0.1, milestones=[20, 30])
 
 class KLDivergenceLoss(nn.Module):
     """
@@ -173,9 +174,10 @@ def train(epoch):
         train_acc += pred.eq(target.data.view_as(pred)).cpu().sum()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.2f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
+    lr_scheduler.step(avg_loss/len(train_loader.dataset))
 
 def test():
     model.eval()
@@ -191,11 +193,22 @@ def test():
             test_loss += F.cross_entropy(output, target, size_average=False) # sum up batch loss
             pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
             correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+            test_loss /= len(test_loader.dataset)
             
-        test_loss /= len(test_loader.dataset)
-        print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)\n'.format(
+            # ensemble predictions
+            output_ens = torch.zeros_like(output)
+            for m in models:
+                tmp_output = m(data) 
+                output_ens += tmp_output
+            test_loss_ens += F.cross_entropy(output_ens, target, size_average=False) # sum up batch loss
+            pred_ens = output_ens.data.max(1, keepdim=True)[1] # get the index of the max log-probability
+            correct_ens += pred_ens.eq(target.view_as(pred)).cpu().sum()
+            test_loss_ens /= len(test_loader.dataset)
+
+        print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%), Ensemble Accuracy: {:.2f}%\n'.format(
             test_loss, correct, len(test_loader.dataset),
-            100. * correct / len(test_loader.dataset)))
+            100. * correct / len(test_loader.dataset),
+            100. * correct_ens / len(test_loader.dataset)))
     return correct / float(len(test_loader.dataset))
 
 def save_checkpoint(state, is_best, filepath):
