@@ -20,7 +20,7 @@ parser.add_argument('--dataset', type=str, default='cifar100',
                     help='training dataset (default: cifar100)')
 parser.add_argument('--refine', default='', type=str, metavar='PATH',
                     help='path to the pruned model to be fine tuned')
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=256, metavar='N',
                     help='input batch size for testing (default: 256)')
@@ -106,7 +106,9 @@ if args.cuda:
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[20,30], gamma=0.1)
+lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
+                                              milestones=[int(args.epochs*0.5), int(args.epochs*0.75)], 
+                                              gamma=0.1)
 
 if args.resume:
     if os.path.isfile(args.resume):
@@ -142,7 +144,7 @@ def train(epoch):
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss))
     lr_scheduler.step()
-    
+
 def test():
     model.eval()
     test_loss = 0

@@ -18,7 +18,7 @@ import models
 parser = argparse.ArgumentParser(description='PyTorch Slimming CIFAR training')
 parser.add_argument('--dataset', type=str, default='cifar100',
                     help='training dataset (default: cifar100)')
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=256, metavar='N',
                     help='input batch size for testing (default: 256)')
@@ -99,7 +99,9 @@ if args.cuda:
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 120], gamma=0.1)
+lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
+                                              milestones=[int(0.5*args.epochs), int(0.75*args.epochs)],
+                                              gamma=0.1)
 
 if args.resume:
     if os.path.isfile(args.resume):
