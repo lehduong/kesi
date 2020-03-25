@@ -35,20 +35,22 @@ if not os.path.exists(args.save):
 
 model = resnet(depth=args.depth, dataset=args.dataset)
 
-if args.cuda:
-    model.cuda()
 if args.model:
     if os.path.isfile(args.model):
         print("=> loading checkpoint '{}'".format(args.model))
         checkpoint = torch.load(args.model)
         args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
+        model = resnet(dataset=args.dataset, depth=args.depth, cfg=checkpoint['cfg'])
         model.load_state_dict(checkpoint['state_dict'])
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.model, checkpoint['epoch'], best_prec1))
     else:
-        print("=> no checkpoint found at '{}'".format(args.resume))
+        print("=> no checkpoint found at '{}'".format(args.model))
 
+if args.cuda:
+    model.cuda()
+    
 print('Pre-processing Successful!')
 
 # simple test model after Pre-processing prune (simple set BN scales to zeros)
