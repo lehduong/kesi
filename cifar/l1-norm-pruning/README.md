@@ -32,7 +32,7 @@ python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --
 python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --arch resnet --depth 110 
 ```
 
-# Ensemble Fine-tune
+## Ensemble Fine-tune
 
 Manually change the variable `checkpoint_paths` in ensemble_finetune.py and run: 
 ```shell
