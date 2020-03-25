@@ -22,8 +22,6 @@ parser.add_argument('--depth', type=int, default=56,
                     help='depth of the resnet')
 parser.add_argument('--model', default='', type=str, metavar='PATH',
                     help='path to the model (default: none)')
-parser.add_argument('--pruned', default=False, type=bool,
-                    help='indicate that checkpoint is pruned or not')
 parser.add_argument('--save', default='', type=str, metavar='PATH',
                     help='path to save pruned model (default: none)')
 parser.add_argument('-v', default='A', type=str, 
