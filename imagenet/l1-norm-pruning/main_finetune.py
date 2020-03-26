@@ -15,9 +15,12 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
+import sys
+sys.path.append('../')
 
-from .resnet import resnet34
-from ..data_loader import TinyImageNet, training_transform, valid_transform
+
+from resnet import resnet34
+from data_loader import TinyImageNet
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -31,13 +34,13 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet34',
                     help='model architecture: ' +
                         ' | '.join(model_names) +
                         ' (default: resnet18)')
-parser.add_argument('-j', '--workers', default=25, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
                     help='number of data loading workers (default: 25)')
 parser.add_argument('--epochs', default=20, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=256, type=int,
+parser.add_argument('-b', '--batch-size', default=128, type=int,
                     metavar='N', help='mini-batch size (default: 256)')
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     metavar='LR', help='initial learning rate')
@@ -65,6 +68,7 @@ parser.add_argument('--save', default='.', type=str, metavar='PATH',
                     help='path to save prune model (default: current directory)')
 parser.add_argument('--refine', default='', type=str, metavar='PATH',
                     help='the PATH to pruned model')
+parser.add_argument('--num_classes', default=200, type=int, help='number of classes of classifier' )
 
 best_prec1 = 0
 
@@ -85,6 +89,8 @@ def main():
     if args.refine:
         checkpoint = torch.load(args.refine)
         model = resnet34(cfg=checkpoint['cfg'])
+    else:
+        model = resnet34(num_classes=args.num_classes)
 
     if not args.distributed:
         if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
@@ -95,9 +101,6 @@ def main():
     else:
         model.cuda()
         model = torch.nn.parallel.DistributedDataParallel(model)
-
-    if args.refine:
-        model.load_state_dict(checkpoint['state_dict'])
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda()
@@ -125,28 +128,32 @@ def main():
     # Data loading code
     # traindir = os.path.join(args.data, 'train')
     # valdir = os.path.join(args.data, 'val')
-    # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-    #                                  std=[0.229, 0.224, 0.225])
+    normalize = transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                                      std=(0.229, 0.224, 0.225))
 
-    # train_dataset = datasets.ImageFolder(
-    #     traindir,
-    #     transforms.Compose([
-    #         transforms.RandomResizedCrop(224),
-    #         transforms.RandomHorizontalFlip(),
-    #         transforms.ToTensor(),
-    #         normalize,
-    #     ]))
+    training_transform = transforms.Compose([
+            transforms.Lambda(lambda x: x.convert("RGB")),
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
 
-    # val_dataset = datasets.ImageFolder(valdir, transforms.Compose([
-    #         transforms.Resize(256),
-    #         transforms.CenterCrop(224),
-    #         transforms.ToTensor(),
-    #         normalize,
-    #     ]))
+    valid_transform = transforms.Compose([
+            transforms.Lambda(lambda x: x.convert("RGB")),
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ])
+
+    # train_dataset = datasets.ImageFolder( traindir, training_transform)
+
+    # val_dataset = datasets.ImageFolder(valdir, valid_transform)
 
     # For Tiny ImageNet dataset
     train_dataset = TinyImageNet(args.data, 'train', transform=training_transform, in_memory=False)
-    val_dataset = TinyImageNet(args.data, 'train', transform=valid_transform, in_memory=False)
+    val_dataset = TinyImageNet(args.data, 'val', transform=valid_transform, in_memory=False)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -178,7 +185,7 @@ def main():
 
         # evaluate on validation set
         prec1 = validate(val_loader, model, criterion)
-        history_score[epoch] = prec1
+        history_score[epoch] = prec1.cpu()
         np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt = '%10.5f', delimiter=',')
 
         # remember best prec@1 and save checkpoint
@@ -221,7 +228,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        losses.update(loss.data[0], input.size(0))
+        losses.update(loss.item(), input.size(0))
         top1.update(prec1[0], input.size(0))
         top5.update(prec5[0], input.size(0))
 
@@ -266,7 +273,7 @@ def validate(val_loader, model, criterion):
 
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        losses.update(loss.data[0], input.size(0))
+        losses.update(loss.item(), input.size(0))
         top1.update(prec1[0], input.size(0))
         top5.update(prec5[0], input.size(0))
 
