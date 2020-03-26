@@ -91,8 +91,10 @@ class ResNet(nn.Module):
         self.inplanes = 64
         super(ResNet, self).__init__()
         if cfg == None:
-            cfg = [[64] * layers[0], [128]*layers[1], [256]*layers[2], [512]*layers[3]]
-            cfg = [item for sub_list in cfg for item in sub_list]
+            self.cfg = [[64] * layers[0], [128]*layers[1], [256]*layers[2], [512]*layers[3]]
+            self.cfg = [item for sub_list in cfg for item in sub_list]
+        else:
+            self.cfg = cfg
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
@@ -153,12 +155,26 @@ class ResNet(nn.Module):
 
         return x
 
-def resnet34(pretrained=False, **kwargs):
+
+def resnet34(pretrained=False, num_classes=1000, **kwargs):
     """Constructs a ResNet-34 model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
+    model = ResNet(BasicBlock, [3, 4, 6, 3], cfg=kwargs.get('cfg'))
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet34']))
+        state_dict_loaded = model_zoo.load_url(model_urls['resnet34'])
+        last_num_channels = model.fc.in_features
+        fc_replace = nn.Linear(last_num_channels, num_classes)
+        model.load_state_dict(state_dict_loaded)
+        model.fc = fc_replace
+
+    return model
+
+
+def resnet18(pretrained=False, num_classes=1000, **kwargs):
+    model = torch.hub.load('pytorch/vision:v0.5.0', 'resnet18', pretrained=pretrained)
+    last_num_channels = model.fc.in_features
+    fc_replace = nn.Linear(last_num_channels, num_classes)
+    model.fc = fc_replace
     return model

@@ -19,7 +19,7 @@ import sys
 sys.path.append('../')
 
 
-from resnet import resnet34
+import resnet
 from data_loader import TinyImageNet
 
 model_names = sorted(name for name in models.__dict__
@@ -85,12 +85,16 @@ def main():
     if args.distributed:
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size)
-
+    cfg = None
     if args.refine:
         checkpoint = torch.load(args.refine)
-        model = resnet34(cfg=checkpoint['cfg'])
+        if checkpoint.get('cfg'):
+            cfg = checkpoint['cfg']
+            model = getattr(resnet, args.arch)(num_classes=args.num_classes, cfg=checkpoint['cfg'])
+        else:
+            model = getattr(resnet, args.arch)(num_classes=args.num_classes)
     else:
-        model = resnet34(num_classes=args.num_classes)
+        model = getattr(resnet, args.arch)(num_classes=args.num_classes)
 
     if not args.distributed:
         if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
@@ -101,6 +105,9 @@ def main():
     else:
         model.cuda()
         model = torch.nn.parallel.DistributedDataParallel(model)
+
+    if args.refine:
+        model.load_state_dict(checkpoint['state_dict'])
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda()
@@ -131,9 +138,12 @@ def main():
     normalize = transforms.Normalize(mean=(0.485, 0.456, 0.406),
                                       std=(0.229, 0.224, 0.225))
 
+    crop_size = 224
+    if args.arch == 'resnet18':
+        crop_size = 64
+
     training_transform = transforms.Compose([
             transforms.Lambda(lambda x: x.convert("RGB")),
-            transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize,
@@ -141,8 +151,6 @@ def main():
 
     valid_transform = transforms.Compose([
             transforms.Lambda(lambda x: x.convert("RGB")),
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
             transforms.ToTensor(),
             normalize,
         ])
@@ -190,13 +198,14 @@ def main():
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
-        best_prec1 = max(prec1, best_prec1)
+        best_prec1 = max(prec1, best_prec1).cpu()
         save_checkpoint({
             'epoch': epoch + 1,
             'arch': args.arch,
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
             'optimizer' : optimizer.state_dict(),
+            'cfg': cfg
         }, is_best, args.save)
 
     history_score[-1] = best_prec1
