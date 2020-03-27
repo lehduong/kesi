@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import os
 import shutil
+import models
 
 import torch
 import torch.nn as nn
@@ -10,8 +11,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
-
-import models
+from torch.backends import cudnn
 
 
 # Training settings
@@ -57,7 +57,6 @@ if args.cuda:
 if not os.path.exists(args.save):
     os.makedirs(args.save)
 
-kwargs = {'num_workers': 4} if args.cuda else {}
 if args.dataset == 'cifar10':
     train_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10('./data.cifar10', train=True, download=True,
@@ -67,13 +66,13 @@ if args.dataset == 'cifar10':
                             transforms.ToTensor(),
                             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
                        ])),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
+        batch_size=args.batch_size, shuffle=True, num_workers=4)
     test_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10('./data.cifar10', train=False, transform=transforms.Compose([
                            transforms.ToTensor(),
                            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
                        ])),
-        batch_size=args.test_batch_size, shuffle=False, **kwargs)
+        batch_size=args.test_batch_size, shuffle=False, num_workers=4)
 else:
     train_loader = torch.utils.data.DataLoader(
         datasets.CIFAR100('./data.cifar100', train=True, download=True,
@@ -84,18 +83,20 @@ else:
                            transforms.ToTensor(),
                            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
                        ])),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
+        batch_size=args.batch_size, shuffle=True, num_workers=4)
     test_loader = torch.utils.data.DataLoader(
         datasets.CIFAR100('./data.cifar100', train=False, transform=transforms.Compose([
                            transforms.ToTensor(),
                            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
                        ])),
-        batch_size=args.test_batch_size, shuffle=False, **kwargs)
+        batch_size=args.test_batch_size, shuffle=False, num_workers=4)
 
 model = models.__dict__[args.arch](dataset=args.dataset, depth=args.depth)
 
 if args.cuda:
     model.cuda()
+
+cudnn.benchmark = True
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
@@ -115,6 +116,7 @@ if args.resume:
               .format(args.resume, checkpoint['epoch'], best_prec1))
     else:
         print("=> no checkpoint found at '{}'".format(args.resume))
+    print('Total params: %.2fM' % (sum(p.numel() for p in model.parameters())))
 
 def train(epoch):
     model.train()

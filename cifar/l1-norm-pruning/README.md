@@ -8,7 +8,28 @@ torch v0.3.1, torchvision v0.2.0
 
 ## Baseline 
 
+**VGG-16**
+
+```shell
+python cifar.py -a vgg19_bn --epochs 164 --schedule 81 122 --gamma 0.1 --checkpoint checkpoints/cifar10/vgg19_bn 
+```
+
+**Resnet-56**
+
+```shell
+python cifar.py -a resnet --depth 56 --epochs 164 --schedule 81 122 --gamma 0.1 --wd 1e-4 --checkpoint checkpoints/cifar10/resnet-110 
+```
+
+**Resnet-110**
+
+```shell
+python cifar.py -a resnet --depth 110 --epochs 164 --schedule 81 122 --gamma 0.1 --wd 1e-4 --checkpoint checkpoints/cifar10/resnet-110 
+```
+
+**Deprecate**: don't know exactly why but training with `main.py` leads to significant inferior results with `batch_size` = 128.
+
 The `dataset` argument specifies which dataset to use: `cifar10` or `cifar100`. The `arch` argument specifies the architecture to use: `vgg` or `resnet`. The depth is chosen to be the same as the networks used in the paper.
+
 ```shell
 python main.py --dataset cifar10 --arch vgg --depth 16
 python main.py --dataset cifar10 --arch resnet --depth 56

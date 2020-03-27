@@ -18,14 +18,16 @@ import torch.optim as optim
 import torch.utils.data as data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import models
+import models as arch_module
 
 from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
 
+# This line is necessary to fix the OMP error on mac 
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-model_names = sorted(name for name in models.__dict__
+model_names = sorted(name for name in arch_module.__dict__
     if name.islower() and not name.startswith("__")
-    and callable(models.__dict__[name]))
+    and callable(arch_module.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10/100 Training')
 # Datasets
@@ -57,6 +59,10 @@ parser.add_argument('-c', '--checkpoint', default='checkpoint', type=str, metava
                     help='path to save checkpoint (default: checkpoint)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
+parser.add_argument('--load-optimizer', default=True, type=bool, metavar='N',
+                    help='determine to load state dict of optimizer from checkpoint or not(default: True)')
+parser.add_argument('--load-model', default=True, type=bool, metavar='N',
+                    help='determine to load state dict of model from checkpoint or not(default: True)')
 # Architecture
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet20',
                     choices=model_names,
@@ -105,8 +111,6 @@ def main():
     if not os.path.isdir(args.checkpoint):
         mkdir_p(args.checkpoint)
 
-
-
     # Data
     print('==> Preparing dataset %s' % args.dataset)
     transform_train = transforms.Compose([
@@ -127,52 +131,24 @@ def main():
         dataloader = datasets.CIFAR100
         num_classes = 100
 
-
     trainset = dataloader(root='./data', train=True, download=True, transform=transform_train)
     trainloader = data.DataLoader(trainset, batch_size=args.train_batch, shuffle=True, num_workers=args.workers)
-
+    
     testset = dataloader(root='./data', train=False, download=False, transform=transform_test)
     testloader = data.DataLoader(testset, batch_size=args.test_batch, shuffle=False, num_workers=args.workers)
 
     # Model
     print("==> creating model '{}'".format(args.arch))
-    if args.arch.startswith('resnext'):
-        model = models.__dict__[args.arch](
-                    cardinality=args.cardinality,
-                    num_classes=num_classes,
-                    depth=args.depth,
-                    widen_factor=args.widen_factor,
-                    dropRate=args.drop,
-                )
-    elif args.arch.startswith('densenet'):
-        model = models.__dict__[args.arch](
-                    num_classes=num_classes,
-                    depth=args.depth,
-                    growthRate=args.growthRate,
-                    compressionRate=args.compressionRate,
-                    dropRate=args.drop,
-                )
-    elif args.arch.startswith('wrn'):
-        model = models.__dict__[args.arch](
-                    num_classes=num_classes,
-                    depth=args.depth,
-                    widen_factor=args.widen_factor,
-                    dropRate=args.drop,
-                )
-    elif args.arch.endswith('resnet'):
-        model = models.__dict__[args.arch](
-                    dataset=args.dataset,
-                    depth=args.depth
-                )
-    else:
-        model = models.__dict__[args.arch](num_classes=num_classes)
-
-    model = torch.nn.DataParallel(model).cuda()
+    model = arch_module.__dict__[args.arch](dataset=args.dataset)
     cudnn.benchmark = True
     print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters())/1000000.0))
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-
+    lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
+                                                  milestones=[
+                                                      int(args.epochs*0.5), 
+                                                      int(args.epochs*0.75)], 
+                                                  gamma=0.1)
     # Resume
     title = 'cifar-10-' + args.arch
     if args.resume:
@@ -181,10 +157,22 @@ def main():
         assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
         args.checkpoint = os.path.dirname(args.resume)
         checkpoint = torch.load(args.resume)
-        best_acc = checkpoint['best_acc']
+        best_acc = checkpoint['best_prec1']
         start_epoch = checkpoint['epoch']
-        model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
+        model = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
+        # load the state dict of saved checkpoint 
+        # turn the flag off to train from scratch 
+        if args.load_model:
+            print('===> Resuming the state dict of saved model')
+            model.load_state_dict(checkpoint['state_dict'])
+        else:
+            print('===> Skip loading state dict of saved model')
+        # finetune a pruned network 
+        if args.load_optimizer:
+            print('===> Resuming the state dict of saved checkpoint')
+            optimizer.load_state_dict(checkpoint['optimizer'])
+        else:
+            print('===> Skip loading the state dict of saved optimizer')
         logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title, resume=True)
     else:
         logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
@@ -199,15 +187,14 @@ def main():
 
     # Train and val
     for epoch in range(start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch)
+        current_lr = next(iter(optimizer.param_groups))['lr']
+        print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, current_lr))
 
-        print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, state['lr']))
-
-        train_loss, train_acc = train(trainloader, model, criterion, optimizer, epoch, use_cuda)
+        train_loss, train_acc = train(trainloader, model, criterion, optimizer, lr_scheduler, epoch, use_cuda)
         test_loss, test_acc = test(testloader, model, criterion, epoch, use_cuda)
 
         # append logger file
-        logger.append([state['lr'], train_loss, test_loss, train_acc, test_acc])
+        logger.append([current_lr, train_loss, test_loss, train_acc, test_acc])
 
         # save model
         is_best = test_acc > best_acc
@@ -215,9 +202,9 @@ def main():
         save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
-                'acc': test_acc,
-                'best_acc': best_acc,
+                'best_prec1': test_acc,
                 'optimizer' : optimizer.state_dict(),
+                'cfg': model.cfg
             }, is_best, checkpoint=args.checkpoint)
 
     logger.close()
@@ -227,7 +214,7 @@ def main():
     print('Best acc:')
     print(best_acc)
 
-def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
+def train(trainloader, model, criterion, optimizer, lr_scheduler, epoch, use_cuda):
     # switch to train mode
     model.train()
 
@@ -244,8 +231,7 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
         data_time.update(time.time() - end)
 
         if use_cuda:
-            inputs, targets = inputs.cuda(), targets.cuda(async=True)
-        inputs, targets = torch.autograd.Variable(inputs), torch.autograd.Variable(targets)
+            inputs, targets = inputs.cuda(), targets.cuda()
 
         # compute output
         outputs = model(inputs)
@@ -279,6 +265,7 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
                     top5=top5.avg,
                     )
         bar.next()
+    lr_scheduler.step()
     bar.finish()
     return (losses.avg, top1.avg)
 
@@ -339,13 +326,6 @@ def save_checkpoint(state, is_best, checkpoint='checkpoint', filename='checkpoin
     torch.save(state, filepath)
     if is_best:
         shutil.copyfile(filepath, os.path.join(checkpoint, 'model_best.pth.tar'))
-
-def adjust_learning_rate(optimizer, epoch):
-    global state
-    if epoch in args.schedule:
-        state['lr'] *= args.gamma
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = state['lr']
 
 if __name__ == '__main__':
     main()
