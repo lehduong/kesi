@@ -22,7 +22,7 @@ python cifar.py -a resnet110 --epochs 300 --schedule 150 225 --gamma 0.1 --wd 1e
 **Result**: We should get the below results when running with above training recipe.
 |Model      | #Params | CIFAR-10 | CIFAR-100|
 |:--------- |:----------:|:---------:|:---------:|
-|[Resnet-56](https://drive.google.com/file/d/1Ak-KxWbPZNnZHJfrhJEVsXYaR70UmzMJ/view?usp=sharing) | 0.85M  |   93.42    | -         |
+|[Resnet-56](https://drive.google.com/open?id=1Ak-KxWbPZNnZHJfrhJEVsXYaR70UmzMJ) | 0.85M  |   93.42    | -         |
 |Resnet-110 |  1.72M |   94.35    | -         |
 |VGG-16     |     -      | -         | -|
 
@@ -80,11 +80,11 @@ python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --
 
 |Model      | #Params | CIFAR-10 | CIFAR-100|
 |:--------- |:----------:|:---------:|:---------:|
-|[Resnet-56 #1]() |     0.65M  |   93.05    | -         |
-|[Resnet-56 #2]() |     0.51M  |   93.21    | -         |
-|[Resnet-56 #3]() |     0.42M  |   93.06    | -         |
-|[Resnet-56 #4]() |     0.34M  |   92.95    | -         |
-|[Resnet-56 #5]() |     0.28M  |   92.56    | -         |
+|[Resnet-56 #1](https://drive.google.com/open?id=1m71QYlEDHPaX5ueX1p7b5N931n_MroJy) |     0.65M  |   93.05    | -         |
+|[Resnet-56 #2](https://drive.google.com/file/d/1-70MKowxBzIUgh03M6OlQ9L3RYwvy5s_/view?usp=sharing) |     0.51M  |   93.21    | -         |
+|[Resnet-56 #3](https://drive.google.com/file/d/1-7qDS6T5h5oKDsYzo8_i32AMgACk_9C4/view?usp=sharing) |     0.42M  |   93.06    | -         |
+|[Resnet-56 #4](https://drive.google.com/file/d/1-9_8Y9gNmY4kNbNgPSsjQ7-22rZ2VElQ/view?usp=sharing) |     0.34M  |   92.95    | -         |
+|[Resnet-56 #5](https://drive.google.com/file/d/1-9daN9eKwGv6t8QeQ4bCJmXmRHwQ18Ys/view?usp=sharing) |     0.28M  |   92.56    | -         |
 |[Resnet-56-E-1-5]()  |     -      |   94.27    | -         |
 
 where `Resnet-56 #x` indicate the pruned model at *x-th* iteration and `Resnet-56-E-x-y` indicate the ensemble of `Resnet-56 #x` **to** `Resnet-56 #y` i.e. **y-x+1** models in total.
@@ -100,4 +100,5 @@ python ensemble_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar1
 
 |Model      | #Params | Teacher CIFAR-10 | CIFAR-10 | teacher CIFAR-100| CIFAR-100|
 |:--------- |:----------:|:---------:|:---------:|:---------:|:---------:|
-|[Resnet-56 #5]() |     0.28M  |   94.27   | 93.36  | - | - |
+|[Resnet-56 #5](https://drive.google.com/file/d/1-CuZfD5t8cFRoOj6wuFOdo10bgEvOlov/view?usp=sharing) |     0.28M  |   94.27 (Resnet-56-E-1-5)   | 93.36  | - | - |
+|[Resnet-56 #5](https://drive.google.com/file/d/1-C773-mPqLpRFIWTwzTjg35WlEEvRmT9/view?usp=sharing) |     0.28M  |   93.42 (Resnet-56-E-1)   | 93.22  | - | - |
