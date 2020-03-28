@@ -95,11 +95,11 @@ else:
                        ])),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
-model = models.__dict__[args.arch](dataset=args.dataset, depth=args.depth)
+model = models.__dict__[args.arch](dataset=args.dataset)
 
 if args.refine:
     checkpoint = torch.load(args.refine)
-    model = models.__dict__[args.arch](dataset=args.dataset, depth=args.depth, cfg=checkpoint['cfg'])
+    model = models.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
     model.load_state_dict(checkpoint['state_dict'])
 
 if args.cuda:

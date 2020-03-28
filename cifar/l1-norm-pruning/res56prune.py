@@ -33,7 +33,7 @@ args.cuda = not args.no_cuda and torch.cuda.is_available()
 if not os.path.exists(args.save):
     os.makedirs(args.save)
 
-model = resnet(depth=args.depth, dataset=args.dataset)
+model = resnet56(dataset=args.dataset)
 
 if args.model:
     if os.path.isfile(args.model):
@@ -41,7 +41,7 @@ if args.model:
         checkpoint = torch.load(args.model)
         args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
-        model = resnet(dataset=args.dataset, depth=args.depth, cfg=checkpoint['cfg'])
+        model = resnet56(dataset=args.dataset, cfg=checkpoint['cfg'])
         model.load_state_dict(checkpoint['state_dict'])
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.model, checkpoint['epoch'], best_prec1))
@@ -93,7 +93,7 @@ skip = {
 }
 
 prune_prob = {
-    'A': [0.1, 0.1, 0.1],
+    'A': [0.1, 0.2, 0.3],
     'B': [0.6, 0.3, 0.1],
 }
 
@@ -129,7 +129,7 @@ for m in model.modules():
             continue
         layer_id += 1
 
-newmodel = resnet(dataset=args.dataset, depth=args.depth, cfg=cfg)
+newmodel = resnet56(dataset=args.dataset, cfg=cfg)
 if args.cuda:
     newmodel.cuda()
 

@@ -126,10 +126,8 @@ def main():
     ])
     if args.dataset == 'cifar10':
         dataloader = datasets.CIFAR10
-        num_classes = 10
     else:
         dataloader = datasets.CIFAR100
-        num_classes = 100
 
     trainset = dataloader(root='./data', train=True, download=True, transform=transform_train)
     trainloader = data.DataLoader(trainset, batch_size=args.train_batch, shuffle=True, num_workers=args.workers)
@@ -142,6 +140,7 @@ def main():
     model = arch_module.__dict__[args.arch](dataset=args.dataset)
     cudnn.benchmark = True
     print('    Total params: %.2fM' % (sum(p.numel() for p in model.parameters())/1000000.0))
+
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
@@ -168,16 +167,22 @@ def main():
         else:
             print('===> Skip loading state dict of saved model')
         # finetune a pruned network 
-        if args.load_optimizer:
+        if args.load_optimizer and ('optimizer' in checkpoint.keys()):
             print('===> Resuming the state dict of saved checkpoint')
             optimizer.load_state_dict(checkpoint['optimizer'])
         else:
             print('===> Skip loading the state dict of saved optimizer')
-        logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title, resume=True)
+        if os.path.isfile('log.txt'):
+            logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title, resume=True)
+        else:
+            logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
+            logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
     else:
         logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
         logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
 
+    if use_cuda: 
+        model = model.cuda()
 
     if args.evaluate:
         print('\nEvaluation only')

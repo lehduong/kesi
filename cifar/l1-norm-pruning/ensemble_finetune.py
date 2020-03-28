@@ -20,7 +20,7 @@ parser.add_argument('--dataset', type=str, default='cifar100',
                     help='training dataset (default: cifar100)')
 parser.add_argument('--refine', default='', type=str, metavar='PATH',
                     help='path to the pruned model to be fine tuned')
-parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=256, metavar='N',
                     help='input batch size for testing (default: 256)')
@@ -49,12 +49,7 @@ parser.add_argument('--arch', default='vgg', type=str,
 parser.add_argument('--depth', default=16, type=int,
                     help='depth of the neural network')
 
-checkpoint_paths = ['logs/model_best.pth', 
-                    'prune_1/model_best.pth', 
-                    'prune_2/model_best.pth', 
-                    'prune_3/model_best.pth',
-                    'prune_4/model_best.pth', 
-                    'prune_5/model_best.pth', 
+checkpoint_paths = ['checkpoints/cifar10/resnet-110/model_best.pth.tar', 
                     ]
 
 args = parser.parse_args()
@@ -103,20 +98,20 @@ else:
                        ])),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
-model = model_module.__dict__[args.arch](dataset=args.dataset, depth=args.depth)
+model = model_module.__dict__[args.arch](dataset=args.dataset)
 models = []
 
 if args.refine:
     print("=> loading checkpoint '{}'".format(args.refine))
     checkpoint = torch.load(args.refine)
-    model = model_module.__dict__[args.arch](dataset=args.dataset, depth=args.depth, cfg=checkpoint['cfg'])
+    model = model_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
     model.load_state_dict(checkpoint['state_dict'])
     for param in model.parameters():
       param.requires_grad = True 
     for path in checkpoint_paths:
         print("=> loading ensemble '{}'".format(path))
         checkpoint = torch.load(path, map_location=torch.device('cpu'))
-        tmp = model_module.__dict__[args.arch](dataset=args.dataset, depth=args.depth, cfg=checkpoint['cfg'])
+        tmp = model_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
         tmp.load_state_dict(checkpoint['state_dict'])
         tmp.eval()
         for param in tmp.parameters():
@@ -132,12 +127,9 @@ if args.cuda:
         m.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 
-                                                    factor=0.1, 
-                                                    patience=5, 
-                                                    threshold_mode='rel', 
-                                                    threshold=0.1, 
-                                                    verbose=True)
+lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
+                                              milestones=[int(0.5*args.epochs), int(0.75*args.epochs)],
+                                              gamma=0.2)
 class KLDivergenceLoss(nn.Module):
     """
     Kullback-Leibler Divergence loss between 2 tensor
@@ -184,7 +176,7 @@ def train(epoch):
             print('Train Epoch: {} [{}/{} ({:.2f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
-    lr_scheduler.step(avg_loss/len(train_loader.dataset))
+    lr_scheduler.step()
 
 def test():
     model.eval()
