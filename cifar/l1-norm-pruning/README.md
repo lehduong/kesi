@@ -52,7 +52,7 @@ python res110prune.py --dataset cifar10 -v A --model [PATH TO THE MODEL] --save 
 
 Here in `res56prune.py` and `res110prune.py`, the `-v` argument is `A` or `B`, which refers to the naming of the pruned model in the original paper. The pruned model will be named `pruned.pth.tar`. 
 
-Note that, we slightly modified the `A` version of `resnet-56` to increase the compression ratio. In this implementation, the network weights would be pruned at the ratio of $0.1, 0.2, 0.3$ for *stage-1*, *stage-2*, *stage-3* respectively.
+Note that, we slightly modified the `A` version of `resnet-56` to increase the compression ratio. In this implementation, the network weights would be pruned at the ratio of [0.1, 0.2, 0.3] for *stage-1*, *stage-2*, *stage-3* respectively.
 
 ## Fine-tune
 
@@ -76,7 +76,7 @@ python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --
 python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --arch resnet110 
 ```
 
-**Result**: We should get around the below results when running with above training recipe. We finetune the pruned model with `num_epochs` 40,  `batch_size` 128.
+**Result**: We should get around the below results when running with above training recipe. We finetune the pruned model with `num_epochs` 40,  `batch_size` 128, `learning_rate` 0.1 and reduce it at 20-th and 30-th epoch
 
 |Model      | #Params | CIFAR-10 | CIFAR-100|
 |:--------- |:----------:|:---------:|:---------:|

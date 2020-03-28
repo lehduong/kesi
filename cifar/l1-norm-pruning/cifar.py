@@ -55,8 +55,8 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
 # Checkpoints
-parser.add_argument('-c', '--checkpoint', default='checkpoint', type=str, metavar='PATH',
-                    help='path to save checkpoint (default: checkpoint)')
+parser.add_argument('-s', '--save', default='save', type=str, metavar='PATH',
+                    help='path to save checkpoint (default: save)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--load-optimizer', default=True, type=bool, metavar='N',
@@ -64,11 +64,11 @@ parser.add_argument('--load-optimizer', default=True, type=bool, metavar='N',
 parser.add_argument('--load-model', default=True, type=bool, metavar='N',
                     help='determine to load state dict of model from checkpoint or not(default: True)')
 # Architecture
-parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet20',
+parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet56',
                     choices=model_names,
                     help='model architecture: ' +
                         ' | '.join(model_names) +
-                        ' (default: resnet18)')
+                        ' (default: resnet56)')
 parser.add_argument('--depth', type=int, default=29, help='Model depth.')
 parser.add_argument('--block-name', type=str, default='BasicBlock',
                     help='the building block for Resnet and Preresnet: BasicBlock, Bottleneck (default: Basicblock for cifar10/cifar100)')
@@ -108,8 +108,8 @@ def main():
     global best_acc
     start_epoch = args.start_epoch  # start from epoch 0 or last checkpoint epoch
 
-    if not os.path.isdir(args.checkpoint):
-        mkdir_p(args.checkpoint)
+    if not os.path.isdir(args.save):
+        mkdir_p(args.save)
 
     # Data
     print('==> Preparing dataset %s' % args.dataset)
@@ -126,8 +126,10 @@ def main():
     ])
     if args.dataset == 'cifar10':
         dataloader = datasets.CIFAR10
-    else:
+    elif args.dataset == 'cifar100':
         dataloader = datasets.CIFAR100
+    else:
+        raise ValueError('Expect dataset to be either CIFAR-10 or CIFAR-100 but got {}'.format(args.dataset))
 
     trainset = dataloader(root='./data', train=True, download=True, transform=transform_train)
     trainloader = data.DataLoader(trainset, batch_size=args.train_batch, shuffle=True, num_workers=args.workers)
@@ -144,9 +146,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
-                                                  milestones=[
-                                                      int(args.epochs*0.5), 
-                                                      int(args.epochs*0.75)], 
+                                                  milestones=args.schedule, 
                                                   gamma=0.1)
     # Resume
     title = 'cifar-10-' + args.arch
@@ -154,7 +154,7 @@ def main():
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
         assert os.path.isfile(args.resume), 'Error: no checkpoint directory found!'
-        args.checkpoint = os.path.dirname(args.resume)
+        args.save = os.path.dirname(args.resume)
         checkpoint = torch.load(args.resume)
         best_acc = checkpoint['best_prec1']
         start_epoch = checkpoint['epoch']
@@ -172,18 +172,21 @@ def main():
             optimizer.load_state_dict(checkpoint['optimizer'])
         else:
             print('===> Skip loading the state dict of saved optimizer')
+        # if the log file is already exist then append the log to it
         if os.path.isfile('log.txt'):
-            logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title, resume=True)
+            logger = Logger(os.path.join(args.save, 'log.txt'), title=title, resume=True)
         else:
-            logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
+            logger = Logger(os.path.join(args.save, 'log.txt'), title=title)
             logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
     else:
-        logger = Logger(os.path.join(args.checkpoint, 'log.txt'), title=title)
+        # training from scratch
+        logger = Logger(os.path.join(args.save, 'log.txt'), title=title)
         logger.set_names(['Learning Rate', 'Train Loss', 'Valid Loss', 'Train Acc.', 'Valid Acc.'])
 
     if use_cuda: 
         model = model.cuda()
 
+    # evaluate the results on test set
     if args.evaluate:
         print('\nEvaluation only')
         test_loss, test_acc = test(testloader, model, criterion, start_epoch, use_cuda)
@@ -210,11 +213,11 @@ def main():
                 'best_prec1': test_acc,
                 'optimizer' : optimizer.state_dict(),
                 'cfg': model.cfg
-            }, is_best, checkpoint=args.checkpoint)
+            }, is_best, checkpoint=args.save)
 
     logger.close()
     logger.plot()
-    savefig(os.path.join(args.checkpoint, 'log.eps'))
+    savefig(os.path.join(args.save, 'log.eps'))
 
     print('Best acc:')
     print(best_acc)
@@ -326,7 +329,7 @@ def test(testloader, model, criterion, epoch, use_cuda):
     bar.finish()
     return (losses.avg, top1.avg)
 
-def save_checkpoint(state, is_best, checkpoint='checkpoint', filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, checkpoint='save', filename='checkpoint.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
     if is_best:
