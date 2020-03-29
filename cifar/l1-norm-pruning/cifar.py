@@ -20,6 +20,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import models as arch_module
 
+from ptflops import get_model_complexity_info
 from utils import Bar, Logger, AverageMeter, accuracy, mkdir_p, savefig
 
 # This line is necessary to fix the OMP error on mac 
@@ -190,6 +191,12 @@ def main():
     if args.evaluate:
         print('\nEvaluation only')
         test_loss, test_acc = test(testloader, model, criterion, start_epoch, use_cuda)
+        inp = torch.rand(1,3,32,32)
+        if use_cuda:
+            inp = inp.cuda()
+        flops, params = get_model_complexity_info(model, (3, 32, 32), as_strings=True, print_per_layer_stat=True)
+        print('{:<30}  {:<8}'.format('Computational complexity: ', flops))
+        print('{:<30}  {:<8}'.format('Number of parameters: ', params))
         print(' Test Loss:  %.8f, Test Acc:  %.2f' % (test_loss, test_acc))
         return
 

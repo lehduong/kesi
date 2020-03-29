@@ -23,7 +23,7 @@ python cifar.py -a resnet110 --epochs 300 --schedule 150 225 --gamma 0.1 --wd 1e
 |Model      | #Params | CIFAR-10 | CIFAR-100|
 |:--------- |:----------:|:---------:|:---------:|
 |[Resnet-56](https://drive.google.com/open?id=1Ak-KxWbPZNnZHJfrhJEVsXYaR70UmzMJ) | 0.85M  |   93.42    | -         |
-|Resnet-110 |  1.72M |   94.35    | -         |
+|[Resnet-110]() |  1.72M |   94.01    | -         |
 |VGG-16     |     -      | -         | -|
 
 **Todo**: update for `vgg16` model.
@@ -76,7 +76,10 @@ python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --
 python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --arch resnet110 
 ```
 
-**Result**: We should get around the below results when running with above training recipe. We finetune the pruned model with `num_epochs` 40,  `batch_size` 128, `learning_rate` 0.1 and reduce it at 20-th and 30-th epoch
+### Result:
+We should get around the below results when running with above training recipe. We finetune the pruned model with `num_epochs` 40,  `batch_size` 128, `learning_rate` 0.1 and reduce it at 20-th and 30-th epoch
+
+#### 1. Resnet-56
 
 |Model      | #Params | CIFAR-10 | CIFAR-100|
 |:--------- |:----------:|:---------:|:---------:|
@@ -87,6 +90,17 @@ python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --
 |[Resnet-56 #5](https://drive.google.com/file/d/1-9daN9eKwGv6t8QeQ4bCJmXmRHwQ18Ys/view?usp=sharing) |     0.28M  |   92.56    | -         |
 |[Resnet-56-E-1-5]()  |     -      |   94.27    | -         |
 
+#### 2. Resnet-110
+
+|Model      | #Params | MACs(G) |CIFAR-10 | CIFAR-100|
+|:--------- |:----------:|:---------:|:---------:|:---------:|
+|[Resnet-110 #1](https://drive.google.com/file/d/1-10W2X8v9SCG5LrC9zKCTEamPdo6hzSY/view?usp=sharing) |     1.26M  |  - | 93.41    | -         |
+|[Resnet-110 #2](https://drive.google.com/file/d/1-AuUTWLRCvVIUxV8-NBwp5BQcJ3aXKcF/view?usp=sharing) |     0.92M  |   - | 93.39    | -         |
+|[Resnet-110 #3](https://drive.google.com/file/d/1-BC11kPo_SAXxDVWbiUC3Tr-sVA2uxGt/view?usp=sharing) |     0.70M  |   - | 93.41    | -         |
+|[Resnet-110 #4](https://drive.google.com/file/d/1-EEgrp9FymLpa3cTgCfzMGDGNE36MQOI/view?usp=sharing) |     0.52M  |   - | 93.39    | -         |
+|[Resnet-110 #5](https://drive.google.com/file/d/1-N3-YdXMXDVPm512FufKfZmTqCTNabG1/view?usp=sharing) |     0.38M  |   0.09 | 93.45    | -         |
+|[Resnet-110-E-1-5]()  |     -      |   - |94.59    | -         |
+
 where `Resnet-56 #x` indicate the pruned model at *x-th* iteration and `Resnet-56-E-x-y` indicate the ensemble of `Resnet-56 #x` **to** `Resnet-56 #y` i.e. **y-x+1** models in total.
 ## Ensemble Fine-tune
 
@@ -96,9 +110,20 @@ where `Resnet-56 #x` indicate the pruned model at *x-th* iteration and `Resnet-5
 python ensemble_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --arch resnet56 
 ```
 
-**Result**
+### Results
+
+Below models are trained with temperature = 5.
+
+#### 1. Resnet-56
 
 |Model      | #Params | Teacher CIFAR-10 | CIFAR-10 | teacher CIFAR-100| CIFAR-100|
 |:--------- |:----------:|:---------:|:---------:|:---------:|:---------:|
 |[Resnet-56 #5](https://drive.google.com/file/d/1-CuZfD5t8cFRoOj6wuFOdo10bgEvOlov/view?usp=sharing) |     0.28M  |   94.27 (Resnet-56-E-1-5)   | 93.36  | - | - |
 |[Resnet-56 #5](https://drive.google.com/file/d/1-C773-mPqLpRFIWTwzTjg35WlEEvRmT9/view?usp=sharing) |     0.28M  |   93.42 (Resnet-56-E-1)   | 93.22  | - | - |
+
+#### 2. Resnet-110
+
+|Model      | #Params | Teacher CIFAR-10 | CIFAR-10 | teacher CIFAR-100| CIFAR-100|
+|:--------- |:----------:|:---------:|:---------:|:---------:|:---------:|
+|[Resnet-110 #5](https://drive.google.com/file/d/1-NBKBvS5skQ3p-bdFP5YCoxpF4_33ujm/view?usp=sharing) |     0.38M  |   94.59 (Resnet-110-E-1-5)   | 94.19  | - | - |
+|[Resnet-110 #5](https://drive.google.com/file/d/1-NG4BxP1symyDVE7uJISwKSsxWj_Obn2/view?usp=sharing) |     0.38M  |   94.01 (Resnet-110-E-1)   | 93.85  | - | - |
