@@ -25,7 +25,7 @@ parser.add_argument('-v', default='A', type=str,
                     help='version of the model')
 
 args = parser.parse_args()
-use_cuda = torch.cuda.is_available()
+args.cuda = torch.cuda.is_available()
 
 if not os.path.exists(args.save):
     os.makedirs(args.save)
@@ -55,13 +55,13 @@ def test(model):
     kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
     if args.dataset == 'cifar10':
         test_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10('./data.cifar10', train=False, transform=transforms.Compose([
+            datasets.CIFAR10('./data', train=False, transform=transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])),
             batch_size=args.test_batch_size, shuffle=False, **kwargs)
     elif args.dataset == 'cifar100':
         test_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR100('./data.cifar100', train=False, transform=transforms.Compose([
+            datasets.CIFAR100('./data', train=False, transform=transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])),
             batch_size=args.test_batch_size, shuffle=False, **kwargs)
@@ -103,6 +103,16 @@ elif args.arch == 'resnet110':
         'B': [0.5, 0.4, 0.3],
     }
     stages = [36, 72] 
+elif args.arch == 'wrn':
+    skip = {
+        'A': [4,],
+        'B': []
+    },
+    prune_prob = {
+        'A': [0.1, 0.2, 0.3],
+        'B': [0.5, 0.4, 0.3],
+    }
+    stages = []
 else:
     raise ValueError("Expect arch to be either resnet56 or resnet110 but got {}".format(args.arch))
 
@@ -164,6 +174,16 @@ def construct_result_model(model, skip, prune_prob, stages):
     return cfg, cfg_mask
 
 def filter_prune(model, skip, prune_prob, stages):
+    """
+        Run filter pruning for given network
+        :param model: nn.Module - model that would be pruned
+        :param skip: list - list of index of layer that would be skiped
+        :param prune_prob: list - the probability of weights that would be pruned of each stages. \
+            Note that resnet models for cifar have 3 stages, hence, the length of this list in \
+            that case would be 3
+        :param stages: list - indexes of first layer of each stages
+        :return: nn.Module - pruned network
+    """
     # get new config
     cfg, cfg_mask = construct_result_model(model, skip, prune_prob, stages)
     # create compact model with above config

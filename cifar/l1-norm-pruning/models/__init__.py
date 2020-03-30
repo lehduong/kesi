@@ -2,6 +2,8 @@ from __future__ import absolute_import
 
 from .vgg import *
 from .resnet import ResNet 
+from .wrn import wrn
+from .preresnet import preresnet
 
 def resnet20(dataset='cifar10', cfg=None):
     return ResNet(depth=20, dataset=dataset, cfg=cfg)

@@ -12,6 +12,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 from functools import reduce
+from utils import KLDivergenceLoss
 
 
 # Training settings
@@ -130,25 +131,6 @@ optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, we
 lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
                                               milestones=[int(0.5*args.epochs), int(0.75*args.epochs)],
                                               gamma=0.2)
-class KLDivergenceLoss(nn.Module):
-    """
-    Kullback-Leibler Divergence loss between 2 tensor
-    return the KL divergence between distributions
-    :param temperature - float:
-    input:
-        inputs - torch.Tensor: the predictions of 1 model. The shape of this tensor should be batchsize x C x H x W
-        targets - torch.Tensor: the target of
-    """
-
-    def __init__(self, temperature=1):
-        super(KLDivergenceLoss, self).__init__()
-        self.temperature = temperature
-
-    def forward(self, inputs, targets):
-        p_s = F.log_softmax(inputs / self.temperature, dim=1)
-        p_t = F.softmax(targets / self.temperature, dim=1)
-        loss = F.kl_div(p_s, p_t) * (self.temperature ** 2)*targets.shape[1]
-        return loss
 
 criterion = KLDivergenceLoss(temperature=5)
 
