@@ -7,19 +7,18 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torchvision import datasets, transforms
 
-from models import *
-
+import models as arch_module
 
 # Prune settings
 parser = argparse.ArgumentParser(description='PyTorch Slimming CIFAR prune')
 parser.add_argument('--dataset', type=str, default='cifar10',
                     help='training dataset (default: cifar10)')
+parser.add_argument('--arch', type=str, default='vgg16',
+                    help='model architecture (default: vgg16)')
 parser.add_argument('--test-batch-size', type=int, default=256, metavar='N',
                     help='input batch size for testing (default: 256)')
-parser.add_argument('--no-cuda', action='store_true', default=False,
+parser.add_argument('--no-cuda', action='store_true', default=True,
                     help='disables CUDA training')
-parser.add_argument('--depth', type=int, default=16,
-                    help='depth of the vgg')
 parser.add_argument('--model', default='', type=str, metavar='PATH',
                     help='path to the model (default: none)')
 parser.add_argument('--save', default='.', type=str, metavar='PATH',
@@ -31,22 +30,21 @@ args.cuda = not args.no_cuda and torch.cuda.is_available()
 if not os.path.exists(args.save):
     os.makedirs(args.save)
 
-model = vgg(dataset=args.dataset, depth=args.depth)
-if args.cuda:
-    model.cuda()
-
 if args.model:
     if os.path.isfile(args.model):
         print("=> loading checkpoint '{}'".format(args.model))
-        checkpoint = torch.load(args.model)
+        checkpoint = torch.load(args.model, map_location='cpu')
         args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
+        model = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
         model.load_state_dict(checkpoint['state_dict'])
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
               .format(args.model, checkpoint['epoch'], best_prec1))
     else:
         print("=> no checkpoint found at '{}'".format(args.resume))
-
+if args.cuda:
+    model.cuda()
+    
 print('Pre-processing Successful!')
 
 # simple test model after Pre-processing prune (simple set BN scales to zeros)
@@ -54,13 +52,13 @@ def test(model):
     kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
     if args.dataset == 'cifar10':
         test_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10('./data.cifar10', train=False, transform=transforms.Compose([
+            datasets.CIFAR10('./data.cifar10', train=False, download=True, transform=transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])),
             batch_size=args.test_batch_size, shuffle=True, **kwargs)
     elif args.dataset == 'cifar100':
         test_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR100('./data.cifar100', train=False, transform=transforms.Compose([
+            datasets.CIFAR100('./data.cifar100', train=False, download=True, transform=transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])),
             batch_size=args.test_batch_size, shuffle=True, **kwargs)
@@ -81,8 +79,15 @@ def test(model):
     return correct / float(len(test_loader.dataset))
 
 acc = test(model)
-cfg = [32, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 256, 256, 256, 'M', 256, 256, 256]
 
+# create config
+cfg = model.cfg
+keep_prob = [0.9, 0.9, 1, 0.8, 0.8, 1, 0.8, 0.8, 0.8, 1, 0.7, 0.7, 0.7, 1, 0.7, 0.7, 0.7]
+def foo(a):
+    return int(a) if isinstance(a,float) else a 
+cfg = list(map(lambda e: foo(e[0]*e[1]), zip(cfg,keep_prob)))
+
+# create mask
 cfg_mask = []
 layer_id = 0
 for m in model.modules():
@@ -106,7 +111,7 @@ for m in model.modules():
         layer_id += 1
 
 
-newmodel = vgg(dataset=args.dataset, cfg=cfg)
+newmodel = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=cfg)
 if args.cuda:
     newmodel.cuda()
 
@@ -154,7 +159,7 @@ for [m0, m1] in zip(model.modules(), newmodel.modules()):
         m1.running_mean = m0.running_mean.clone()
         m1.running_var = m0.running_var.clone()
 
-torch.save({'cfg': cfg, 'state_dict': newmodel.state_dict()}, os.path.join(args.save, 'pruned.pth.tar'))
+torch.save({'cfg': newmodel.cfg, 'state_dict': newmodel.state_dict()}, os.path.join(args.save, 'pruned.pth.tar'))
 print(newmodel)
 model = newmodel
 acc = test(model)

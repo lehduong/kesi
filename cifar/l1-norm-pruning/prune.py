@@ -21,8 +21,10 @@ parser.add_argument('--model', default='', type=str, metavar='PATH',
                     help='path to the model (default: none)')
 parser.add_argument('--save', default='', type=str, metavar='PATH',
                     help='path to save pruned model (default: none)')
-parser.add_argument('-v', default='A', type=str, 
+parser.add_argument('-v', default='A', type=str,
                     help='version of the model')
+
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 args = parser.parse_args()
 args.cuda = torch.cuda.is_available()
@@ -35,7 +37,7 @@ model = arch_module.__dict__[args.arch](dataset=args.dataset)
 if args.model:
     if os.path.isfile(args.model):
         print("=> loading checkpoint '{}'".format(args.model))
-        checkpoint = torch.load(args.model)
+        checkpoint = torch.load(args.model, map_location='cpu')
         args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1']
         model = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
@@ -55,13 +57,13 @@ def test(model):
     kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
     if args.dataset == 'cifar10':
         test_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10('./data', train=False, transform=transforms.Compose([
+            datasets.CIFAR10('./data', train=False, download=True, transform=transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])),
             batch_size=args.test_batch_size, shuffle=False, **kwargs)
     elif args.dataset == 'cifar100':
         test_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR100('./data', train=False, transform=transforms.Compose([
+            datasets.CIFAR100('./data', train=False, download=True, transform=transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])),
             batch_size=args.test_batch_size, shuffle=False, **kwargs)
@@ -102,7 +104,7 @@ elif args.arch == 'resnet110':
         'A': [0.1, 0.2, 0.3],
         'B': [0.5, 0.4, 0.3],
     }
-    stages = [36, 72] 
+    stages = [36, 72]
 elif args.arch == 'wrn':
     skip = {
         'A': [4,],
@@ -135,13 +137,13 @@ def construct_result_model(model, skip, prune_prob, stages):
     for m in model.modules():
         if isinstance(m, nn.Conv2d):
             out_channels = m.weight.data.shape[0]
-            # if current layer is in skip list the simply add the num_output to config 
+            # if current layer is in skip list the simply add the num_output to config
             if layer_id in skip[args.v]:
                 cfg_mask.append(torch.ones(out_channels))
                 cfg.append(out_channels)
                 layer_id += 1
                 continue
-            # layer not in the skip list + layer's index is even => pruned this layer filter 
+            # layer not in the skip list + layer's index is even => pruned this layer filter
             if layer_id % 2 == 0:
                 # first determine the stage of current layer to pick the right pruning ratio
                 if layer_id <= stages[0]:
@@ -151,25 +153,25 @@ def construct_result_model(model, skip, prune_prob, stages):
                 else:
                     stage = 2
                 prune_prob_stage = prune_prob[args.v][stage]
-                
+
                 # filter selection
-                #TODO: update other filter selecting criterions 
+                #TODO: update other filter selecting criterions
                 weight_copy = m.weight.data.abs().clone().cpu().numpy()
                 L1_norm = np.sum(weight_copy, axis=(1,2,3))
                 num_keep = int(out_channels * (1 - prune_prob_stage))
                 arg_max = np.argsort(L1_norm)
                 arg_max_rev = arg_max[::-1][:num_keep]
-                
-                # create mask 
+
+                # create mask
                 mask = torch.zeros(out_channels)
                 mask[arg_max_rev.tolist()] = 1
-                
+
                 # add mask and num_filter to cfg
                 cfg_mask.append(mask)
                 cfg.append(num_keep)
                 layer_id += 1
                 continue
-            # ignore 
+            # ignore
             layer_id += 1
     return cfg, cfg_mask
 
@@ -196,7 +198,7 @@ def filter_prune(model, skip, prune_prob, stages):
     conv_count = 1
     for [m0, m1] in zip(model.modules(), newmodel.modules()):
         if isinstance(m0, nn.Conv2d):
-            # layer hasn't been pruned 
+            # layer hasn't been pruned
             if conv_count == 1:
                 m1.weight.data = m0.weight.data.clone()
                 conv_count += 1
@@ -238,21 +240,22 @@ def filter_prune(model, skip, prune_prob, stages):
         elif isinstance(m0, nn.Linear):
             m1.weight.data = m0.weight.data.clone()
             m1.bias.data = m0.bias.data.clone()
-    
+
     return newmodel
 
 if __name__ == '__main__':
     newmodel = filter_prune(model, skip, prune_prob, stages)
     torch.save({
-                'cfg': newmodel.cfg, 
+                'cfg': newmodel.cfg,
                 'state_dict': newmodel.state_dict()
-               }, 
+               },
                os.path.join(args.save, 'pruned.pth.tar'))
     print(newmodel)
     num_parameters = sum([param.nelement() for param in newmodel.parameters()])
     model = newmodel
     acc = test(model)
 
+    print('cfg: '+str(model.cfg))
     print("number of parameters: "+str(num_parameters))
     with open(os.path.join(args.save, "prune.txt"), "w") as fp:
         fp.write("Number of parameters: \n"+str(num_parameters)+"\n")
