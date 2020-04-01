@@ -82,7 +82,7 @@ acc = test(model)
 
 # create config
 cfg = model.cfg
-keep_prob = [0.9, 0.9, 1, 0.8, 0.8, 1, 0.8, 0.8, 0.8, 1, 0.7, 0.7, 0.7, 1, 0.7, 0.7, 0.7]
+keep_prob = [0.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5]
 def foo(a):
     return int(a) if isinstance(a,float) else a 
 cfg = list(map(lambda e: foo(e[0]*e[1]), zip(cfg,keep_prob)))
