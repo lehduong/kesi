@@ -5,6 +5,9 @@ from .resnet import ResNet
 from .wrn import wrn
 from .preresnet import preresnet
 
+def vgg16(dataset='cifar10', cfg=None):
+    return vgg(depth=16, dataset=dataset, cfg=cfg)
+
 def resnet20(dataset='cifar10', cfg=None):
     return ResNet(depth=20, dataset=dataset, cfg=cfg)
 

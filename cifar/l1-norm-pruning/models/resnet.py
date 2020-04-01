@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
 from torch.autograd import Variable
-
+from .base_model import BaseModel
 
 __all__ = ['resnet']
 
@@ -59,7 +59,7 @@ def downsample_basic_block(x, planes):
 
     return out
 
-class ResNet(nn.Module):
+class ResNet(BaseModel):
 
     def __init__(self, depth, dataset='cifar10', cfg=None):
         super(ResNet, self).__init__()

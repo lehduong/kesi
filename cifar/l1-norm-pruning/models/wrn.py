@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from functools import reduce
+from .base_model import BaseModel
 __all__ = ['wrn']
 
 class BasicBlock(nn.Module):
@@ -46,7 +47,7 @@ class NetworkBlock(nn.Module):
     def forward(self, x):
         return self.layer(x)
 
-class WideResNet(nn.Module):
+class WideResNet(BaseModel):
     def __init__(self, depth, dataset='cifar10', widen_factor=1, dropRate=0.0, cfg=None):
         super(WideResNet, self).__init__()
         nChannels = [16, 16*widen_factor, 32*widen_factor, 64*widen_factor]
