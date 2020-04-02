@@ -92,14 +92,15 @@ if args.arch == 'resnet56':
                     ('layer3.0',0.0), ('layer3.1',0.3), ('layer3.2',0.3), ('layer3.3',0.3), ('layer3.4',0.3), ('layer3.5',0.3), ('layer3.6',0.3), ('layer3.7',0.3), ('layer3.8',0.0)
                    ]
 elif args.arch == 'resnet110':
-    # FIXME: Update configuration for resnet110
     pruning_plan = [
-                    ('layer1.0',0.1), ('layer1.1',0.1), ('layer1.2',0.1), ('layer1.3',0.1), ('layer1.4',0.1), ('layer1.5',0.1), ('layer1.6',0.1), ('layer1.7',0.1), ('layer1.8',0.0),
+                    ('layer1.0',0.1), ('layer1.1',0.1), ('layer1.2',0.1), ('layer1.3',0.1), ('layer1.4',0.1), ('layer1.5',0.1), ('layer1.6',0.1), ('layer1.7',0.1), ('layer1.8',0.1),
+                    ('layer1.9',0.1), ('layer1.10',0.1), ('layer1.11',0.1), ('layer1.12',0.1), ('layer1.13',0.1), ('layer1.14',0.1), ('layer1.15',0.1), ('layer1.16',0.1), ('layer1.17',0.0),
                     ('layer2.0',0.0), ('layer2.1',0.2), ('layer2.2',0.2), ('layer2.3',0.2), ('layer2.4',0.2), ('layer2.5',0.2), ('layer2.6',0.2), ('layer2.7',0.2), ('layer2.8',0.2),
-                    ('layer3.0',0.0), ('layer3.1',0.3), ('layer3.2',0.3), ('layer3.3',0.3), ('layer3.4',0.3), ('layer3.5',0.3), ('layer3.6',0.3), ('layer3.7',0.3), ('layer3.8',0.0)
+                    ('layer2.9',0.2), ('layer2.10',0.2), ('layer2.11',0.2), ('layer2.12',0.2), ('layer2.13',0.2), ('layer2.14',0.2), ('layer2.15',0.2), ('layer2.16',0.2), ('layer2.17',0.2), 
+                    ('layer3.0',0.0), ('layer3.1',0.3), ('layer3.2',0.3), ('layer3.3',0.3), ('layer3.4',0.3), ('layer3.5',0.3), ('layer3.6',0.3), ('layer3.7',0.3), ('layer3.8',0.3), ('layer3.9',0.3),
+                    ('layer3.10',0.3), ('layer3.11',0.3), ('layer3.12',0.3), ('layer3.13',0.3), ('layer3.14',0.3), ('layer3.15',0.3), ('layer3.16',0.3), ('layer3.17',0.3)
                    ]
 elif args.arch == 'wrn_28_10':
-    # FIXME: Update configuration for wrn
     pruning_plan = [
                     ('block1.layer.0',0.1), ('block1.layer.1',0.1), ('block1.layer.2',0.1), ('block1.layer.3',0.1),
                     ('block2.layer.0',0.2), ('block2.layer.1',0.2), ('block2.layer.2',0.2), ('block2.layer.3',0.2),
