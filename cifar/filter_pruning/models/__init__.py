@@ -20,5 +20,8 @@ def resnet56(dataset='cifar10', cfg=None):
 def resnet110(dataset='cifar10', cfg=None):
     return ResNet(depth=110, dataset=dataset, cfg=cfg)
 
+def preresnet110(dataset='cifar10', cfg=None, block_name='basicblock'):
+    return preresnet(depth=110, dataset=dataset,cfg=cfg, block_name=block_name)
+
 def wrn_28_10(dataset='cifar10', cfg=None):
     return wrn(depth=28,widen_factor=10,dataset=dataset,cfg=cfg)

@@ -28,6 +28,10 @@ parser.add_argument('--epochs', type=int, default=40, metavar='N',
                     help='number of epochs to train (default: 160)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
+parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
+                    help='Decrease learning rate at these epochs.')
+parser.add_argument('--gamma', type=float, default=0.1, 
+                    help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                     help='learning rate (default: 0.1)')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
@@ -46,8 +50,6 @@ parser.add_argument('--save', default='./logs', type=str, metavar='PATH',
                     help='path to save prune model (default: current directory)')
 parser.add_argument('--arch', default='vgg', type=str, 
                     help='architecture to use')
-parser.add_argument('--depth', default=16, type=int,
-                    help='depth of the neural network')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -107,8 +109,8 @@ if args.cuda:
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
-                                              milestones=[int(args.epochs*0.5), int(args.epochs*0.75)], 
-                                              gamma=0.1)
+                                              milestones=args.schedule, 
+                                              gamma=args.gamma)
 
 if args.resume:
     if os.path.isfile(args.resume):
@@ -130,7 +132,6 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
         loss = F.cross_entropy(output, target)
@@ -153,7 +154,6 @@ def test():
         for data, target in test_loader:
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
-            data, target = Variable(data, volatile=True), Variable(target)
             output = model(data)
             test_loss += F.cross_entropy(output, target, size_average=False) # sum up batch loss
             pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
