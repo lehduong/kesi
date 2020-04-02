@@ -50,7 +50,12 @@ parser.add_argument('--arch', default='vgg', type=str,
 parser.add_argument('--depth', default=16, type=int,
                     help='depth of the neural network')
 
-checkpoint_paths = ['checkpoints/cifar10/resnet-110/model_best.pth.tar', 
+checkpoint_paths = ['checkpoints/model_best.pth.tar', 
+                    'prune_1/model_best.pth.tar',
+                    'prune_2/model_best.pth.tar',
+                    'prune_3/model_best.pth.tar',
+                    'prune_4/model_best.pth.tar',
+                    'prune_5/model_best.pth.tar',
                     ]
 
 args = parser.parse_args()
