@@ -30,7 +30,7 @@ python cifar.py -a resnet110 --epochs 300 --schedule 150 225 --gamma 0.1 --wd 1e
 
 ## Pruning
 
-Executing filter pruning for trained model. Currently only `resnet-56` and `resnet-110` are supported.
+Executing filter pruning for trained model..
 
 **vgg**
 
