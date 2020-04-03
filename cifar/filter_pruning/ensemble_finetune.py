@@ -12,7 +12,8 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 from functools import reduce
-from utils import KLDivergenceLoss
+from utils.misc import get_conv_zero_param
+from utils.losses import KLDivergenceLoss
 
 
 # Training settings
@@ -21,7 +22,7 @@ parser.add_argument('--dataset', type=str, default='cifar100',
                     help='training dataset (default: cifar100)')
 parser.add_argument('--refine', default='', type=str, metavar='PATH',
                     help='path to the pruned model to be fine tuned')
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=256, metavar='N',
                     help='input batch size for testing (default: 256)')
@@ -50,12 +51,12 @@ parser.add_argument('--arch', default='vgg', type=str,
 parser.add_argument('--depth', default=16, type=int,
                     help='depth of the neural network')
 
-checkpoint_paths = ['checkpoints/model_best.pth.tar', 
-                    'prune_1/model_best.pth.tar',
-                    'prune_2/model_best.pth.tar',
-                    'prune_3/model_best.pth.tar',
-                    'prune_4/model_best.pth.tar',
-                    'prune_5/model_best.pth.tar',
+checkpoint_paths = ['checkpoints/cifar10/resnet-110/checkpoint.pth.tar', 
+                    'prune_1/finetuned.pth.tar',
+                    'prune_2/finetuned.pth.tar',
+                    'prune_3/finetuned.pth.tar',
+                    'prune_4/finetuned.pth.tar',
+                    'prune_5/finetuned.pth.tar',
                     ]
 
 args = parser.parse_args()
@@ -110,20 +111,20 @@ models = []
 if args.refine:
     print("=> loading checkpoint '{}'".format(args.refine))
     checkpoint = torch.load(args.refine)
-    model = model_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
+    model = model_module.__dict__[args.arch](dataset=args.dataset)
     model.load_state_dict(checkpoint['state_dict'])
     for param in model.parameters():
       param.requires_grad = True 
     for path in checkpoint_paths:
         print("=> loading ensemble '{}'".format(path))
         checkpoint = torch.load(path, map_location=torch.device('cpu'))
-        tmp = model_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
+        tmp = model_module.__dict__[args.arch](dataset=args.dataset)
         tmp.load_state_dict(checkpoint['state_dict'])
         tmp.eval()
         for param in tmp.parameters():
             param.requires_grad = False  
         models.append(tmp)
-        best_prec1 = checkpoint['best_prec1']
+        best_prec1 = checkpoint['acc'] if 'acc' in checkpoint.keys() else checkpoint['best_prec1']
         print("=> loaded model '{}' (epoch {}) Prec1: {:f}"
               .format(path, checkpoint['epoch'], best_prec1))
 
@@ -143,6 +144,12 @@ def train(epoch):
     model.train()
     avg_loss = 0.
     train_acc = 0.
+    lr = next(iter(optimizer.param_groups))['lr']
+    print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, lr))
+    num_parameters = get_conv_zero_param(model)
+    print('Zero parameters: {}'.format(num_parameters))
+    num_parameters = sum([param.nelement() for param in model.parameters()])
+    print('Parameters: {}'.format(num_parameters))
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -155,10 +162,16 @@ def train(epoch):
                 output_tc.append(model_tc(data))
         loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models) 
         loss.backward()
+        for k, m in enumerate(model.modules()):
+            # print(k, m)
+            if isinstance(m, nn.Conv2d):
+                weight_copy = m.weight.data.abs().clone()
+                mask = weight_copy.gt(0).float().cuda()
+                m.weight.grad.data.mul_(mask)
+        optimizer.step()
         avg_loss += loss.item() 
         pred = output.data.max(1, keepdim=True)[1]
         train_acc += pred.eq(target.data.view_as(pred)).cpu().sum()
-        optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.2f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -211,7 +224,7 @@ for epoch in range(args.start_epoch, args.epochs):
     save_checkpoint({
         'epoch': epoch + 1,
         'state_dict': model.state_dict(),
-        'best_prec1': best_prec1,
+        'acc': best_prec1,
         'optimizer': optimizer.state_dict(),
         'cfg': model.cfg
     }, is_best, filepath=args.save)
