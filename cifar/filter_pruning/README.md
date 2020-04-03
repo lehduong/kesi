@@ -7,16 +7,12 @@ We also provide the pretrained networks for CIFAR-10 and CIFAR-100 as well as fi
 
 ## Training baseline model 
 
-**Resnet-56**
+Supported architecture: `resnet56`, `resnet110`, `preresnet110`, `wrn_28_10`, `vgg16`.
+
+To train a baseline from scratch, run below command and change the `-a` option to any aforementioned architectures.
 
 ```shell
 python cifar.py -a resnet56 --epochs 300 --schedule 150 225 --gamma 0.1 --wd 1e-4 --checkpoint checkpoints/cifar10/resnet-56
-```
-
-**Resnet-110**
-
-```shell
-python cifar.py -a resnet110 --epochs 300 --schedule 150 225 --gamma 0.1 --wd 1e-4 --checkpoint checkpoints/cifar10/resnet-110 
 ```
 
 **Result**: We should get the below results when running with above training recipe.
@@ -26,58 +22,33 @@ python cifar.py -a resnet110 --epochs 300 --schedule 150 225 --gamma 0.1 --wd 1e
 |Resnet-110 |  1.72M |   [94.01](https://drive.google.com/file/d/1n6viesspfHl4qAFEkUD8g5Kd0a9QQO0o/view?usp=sharing)    |  [72.35](https://drive.google.com/file/d/1S3NtJM7b4dVhlm9HgRPqMUYFEvJj6bPq/view?usp=sharing)         |
 |VGG-16     |     -      | -         | -|
 
-**Todo**: update for `vgg16` model.
-
 ## Pruning
 
-Executing filter pruning for trained model..
+To perform **filter pruning**, run following command:
 
-**vgg**
+For **VGG-like** networks:
 
 ```shell
 python vggprune.py --dataset cifar10 --model [PATH TO THE MODEL] --save [DIRECTORY TO STORE RESULT]
 ```
 
-**Resnet-56**
-
+For **residual** networks (resnet, wideresnet, preresnet): 
 ```shell
-python res56prune.py --dataset cifar10 -v A --model [PATH TO THE MODEL] --save [DIRECTORY TO STORE RESULT]
+python residualprune.py --dataset cifar10 --model [PATH TO THE MODEL] --save [DIRECTORY TO STORE RESULT]
 ```
 
-**Resnet-110**
-
-```shell
-python res110prune.py --dataset cifar10 -v A --model [PATH TO THE MODEL] --save [DIRECTORY TO STORE RESULT]
-```
-
-Here in `res56prune.py` and `res110prune.py`, the `-v` argument is `A` or `B`, which refers to the naming of the pruned model in the original paper. The pruned model will be named `pruned.pth.tar`. 
-
-Note that, we slightly modified the `A` version of `resnet-56` to increase the compression ratio. In this implementation, the network weights would be pruned at the ratio of [0.1, 0.2, 0.3] for *stage-1*, *stage-2*, *stage-3* respectively.
+Note that for both `resnet` and `VGG`, we adopt the *insensitive* layers follow [Li et al., 2016](https://arxiv.org/abs/1608.08710). That being said, we slightly modified compression ratio of `resnet` to [0.1, 0.2, 0.3] for *stage-1*, *stage-2*, *stage-3* respectively. For `vgg`, we use compression ratio = 0.25 for all pruned layers.
 
 ## Fine-tune
 
 Finetuning the pruned networks with supervised loss.
 
-**VGG-16**
-
 ```shell
-python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --arch vgg16 
-```
-
-**Resnet-56**
-
-```shell
-python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --arch resnet56
-```
-
-**Resnet-110**
-
-```shell
-python main_finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --arch resnet110 
+python finetune.py --refine [PATH TO THE PRUNED MODEL] --dataset cifar10 --arch vgg16
 ```
 
 ### Result:
-We should get around the below results when running with above training recipe. We finetune the pruned model with `num_epochs` 40,  `batch_size` 128, `learning_rate` 0.1 and reduce it at 20-th and 30-th epoch
+We should get around the below results when running with above training recipe. We retrain the pruned model with `num_epochs` 40,  `batch_size` 128, `learning_rate` 0.1 and reduce it at 20-th and 30-th epoch
 
 #### 1. Resnet-56
 

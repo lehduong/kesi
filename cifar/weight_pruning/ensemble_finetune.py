@@ -161,12 +161,13 @@ def train(epoch):
                 output_tc.append(model_tc(data))
         loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models) 
         loss.backward()
+        # zeros out gradient of pruned weights
         for k, m in enumerate(model.modules()):
-            # print(k, m)
             if isinstance(m, nn.Conv2d):
                 weight_copy = m.weight.data.abs().clone()
                 mask = weight_copy.gt(0).float().cuda()
                 m.weight.grad.data.mul_(mask)
+        # ------------------------------------
         optimizer.step()
         avg_loss += loss.item() 
         pred = output.data.max(1, keepdim=True)[1]
