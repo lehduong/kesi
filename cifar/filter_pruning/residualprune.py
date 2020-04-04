@@ -115,6 +115,12 @@ elif args.arch == 'wrn_28_10':
                     ('block2.layer.0',0.2), ('block2.layer.1',0.2), ('block2.layer.2',0.2), ('block2.layer.3',0.2),
                     ('block3.layer.0',0.3), ('block3.layer.1',0.3), ('block3.layer.2',0.3), ('block3.layer.3',0.3),
                    ]
+elif args.arch == 'wrn_16_8':
+    pruning_plan = [
+                    ('block1.layer.0',0.1), ('block1.layer.1',0.1),
+                    ('block2.layer.0',0.2), ('block2.layer.1',0.2),
+                    ('block3.layer.0',0.3), ('block3.layer.1',0.3),
+                   ]
 else:
     raise ValueError("Expect arch to be one of [resnet56, resnet110, wrn_28_10] but got {}".format(args.arch))
 
