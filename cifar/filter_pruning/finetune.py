@@ -129,6 +129,8 @@ def train(epoch):
     model.train()
     avg_loss = 0.
     train_acc = 0.
+    current_lr = next(iter(optimizer.param_groups))['lr']
+    print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, current_lr))
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -142,7 +144,7 @@ def train(epoch):
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
+                epoch+1, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss))
     lr_scheduler.step()
 

@@ -163,7 +163,7 @@ def train(epoch):
         train_acc += pred.eq(target.data.view_as(pred)).cpu().sum()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.2f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
+                epoch+1, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
     lr_scheduler.step()
 
