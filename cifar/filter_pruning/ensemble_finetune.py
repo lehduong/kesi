@@ -12,7 +12,6 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 from functools import reduce
-from utils.misc import get_conv_zero_param
 from utils.losses import KLDivergenceLoss
 
 
@@ -51,12 +50,12 @@ parser.add_argument('--arch', default='vgg', type=str,
 parser.add_argument('--depth', default=16, type=int,
                     help='depth of the neural network')
 
-checkpoint_paths = ['checkpoints/cifar10/resnet-110/checkpoint.pth.tar', 
-                    'prune_1/finetuned.pth.tar',
-                    'prune_2/finetuned.pth.tar',
-                    'prune_3/finetuned.pth.tar',
-                    'prune_4/finetuned.pth.tar',
-                    'prune_5/finetuned.pth.tar',
+checkpoint_paths = ['checkpoints/model_best.pth.tar', 
+                    'prune_1/checkpoint.pth.tar',
+                    'prune_2/checkpoint.pth.tar',
+                    'prune_3/checkpoint.pth.tar',
+                    'prune_4/checkpoint.pth.tar',
+                    'prune_5/checkpoint.pth.tar',
                     ]
 
 args = parser.parse_args()
@@ -111,14 +110,14 @@ models = []
 if args.refine:
     print("=> loading checkpoint '{}'".format(args.refine))
     checkpoint = torch.load(args.refine)
-    model = model_module.__dict__[args.arch](dataset=args.dataset)
+    model = model_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
     model.load_state_dict(checkpoint['state_dict'])
     for param in model.parameters():
       param.requires_grad = True 
     for path in checkpoint_paths:
         print("=> loading ensemble '{}'".format(path))
         checkpoint = torch.load(path, map_location=torch.device('cpu'))
-        tmp = model_module.__dict__[args.arch](dataset=args.dataset)
+        tmp = model_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
         tmp.load_state_dict(checkpoint['state_dict'])
         tmp.eval()
         for param in tmp.parameters():
@@ -146,10 +145,6 @@ def train(epoch):
     train_acc = 0.
     lr = next(iter(optimizer.param_groups))['lr']
     print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, lr))
-    num_parameters = get_conv_zero_param(model)
-    print('Zero parameters: {}'.format(num_parameters))
-    num_parameters = sum([param.nelement() for param in model.parameters()])
-    print('Parameters: {}'.format(num_parameters))
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
@@ -162,12 +157,6 @@ def train(epoch):
                 output_tc.append(model_tc(data))
         loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models) 
         loss.backward()
-        for k, m in enumerate(model.modules()):
-            # print(k, m)
-            if isinstance(m, nn.Conv2d):
-                weight_copy = m.weight.data.abs().clone()
-                mask = weight_copy.gt(0).float().cuda()
-                m.weight.grad.data.mul_(mask)
         optimizer.step()
         avg_loss += loss.item() 
         pred = output.data.max(1, keepdim=True)[1]
