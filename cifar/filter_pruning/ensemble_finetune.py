@@ -33,7 +33,11 @@ parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                     help='learning rate (default: 0.1)')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                     help='SGD momentum (default: 0.9)')
-parser.add_argument('--weight-decay', '--wd', default=0, type=float,
+parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
+                    help='Decrease learning rate at these epochs.')
+parser.add_argument('--gamma', type=float, default=0.2, 
+                    help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 0)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
@@ -134,8 +138,8 @@ if args.cuda:
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
-                                              milestones=[int(0.5*args.epochs), int(0.75*args.epochs)],
-                                              gamma=0.2)
+                                              milestones=args.schedule,
+                                              gamma=args.gamma)
 
 criterion = KLDivergenceLoss(temperature=5)
 

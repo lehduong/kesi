@@ -108,10 +108,12 @@ if args.cuda:
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
-                                              milestones=args.schedule, 
-                                              gamma=args.gamma)
-
+# lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
+#                                               milestones=args.schedule, 
+#                                               gamma=args.gamma)
+lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
+                                             epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
+                                             final_div_factor=1000)
 if args.resume:
     if os.path.isfile(args.resume):
         print("=> loading checkpoint '{}'".format(args.resume))
