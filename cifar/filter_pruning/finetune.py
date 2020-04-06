@@ -28,6 +28,8 @@ parser.add_argument('--epochs', type=int, default=40, metavar='N',
                     help='number of epochs to train (default: 160)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
+parser.add_argument('--use_onecycle', default=True, type=bool, metavar='LR',
+                    help='Use OneCycle Policy or not (default: True)')
 parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
                     help='Decrease learning rate at these epochs.')
 parser.add_argument('--gamma', type=float, default=0.1, 
@@ -108,12 +110,14 @@ if args.cuda:
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-# lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
-#                                               milestones=args.schedule, 
-#                                               gamma=args.gamma)
-lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
-                                             epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
-                                             final_div_factor=1000)
+lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
+                                              milestones=args.schedule, 
+                                              gamma=args.gamma)
+if args.use_onecycle:
+    print('=> using OneCycle Policy')
+    lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
+                                                epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
+                                                final_div_factor=1000)
 if args.resume:
     if os.path.isfile(args.resume):
         print("=> loading checkpoint '{}'".format(args.resume))
@@ -148,7 +152,13 @@ def train(epoch):
             print('Train Epoch: {} [{}/{} ({:.1f}%)]\tLoss: {:.6f}'.format(
                 epoch+1, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss))
-    lr_scheduler.step()
+        # onecycle update every batch
+        if isinstance(lr_scheduler, optim.lr_scheduler.OneCycleLR):
+            lr_scheduler.step()
+
+    # multisteplr etc 
+    if not isinstance(lr_scheduler, optim.lr_scheduler.OneCycleLR):
+        lr_scheduler.step()
 
 def test():
     model.eval()
