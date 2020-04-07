@@ -152,7 +152,6 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data), Variable(target)
         output = model(data)
         optimizer.zero_grad()
         output_tc = []
@@ -177,6 +176,7 @@ def test():
     correct = 0
     test_loss_ens = 0
     correct_ens = 0
+    softmax = nn.Softmax(dim=1)
     with torch.no_grad():
         for data, target in test_loader:
             if args.cuda:
@@ -191,7 +191,7 @@ def test():
             output_ens = torch.zeros_like(output)
             for m in models:
                 tmp_output = m(data) 
-                output_ens += tmp_output
+                output_ens += softmax(tmp_output)
             test_loss_ens += F.cross_entropy(output_ens, target, size_average=False) # sum up batch loss
             pred_ens = output_ens.data.max(1, keepdim=True)[1] # get the index of the max log-probability
             correct_ens += pred_ens.eq(target.view_as(pred)).cpu().sum()
