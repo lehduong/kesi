@@ -203,11 +203,9 @@ def create_l1_norm_mask(layer, num_keep):
     L1_norm = np.sum(weight_copy, axis=(1,2,3))
     arg_max = np.argsort(L1_norm)
     arg_max_rev = arg_max[::-1][:num_keep]
-
     # create mask
     mask = torch.zeros(out_channels)
     mask[arg_max_rev.tolist()] = 1
-    
     return mask 
 
 if __name__ == '__main__':
