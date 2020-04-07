@@ -142,6 +142,7 @@ lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer,
                                               gamma=args.gamma)
 
 criterion = KLDivergenceLoss(temperature=5)
+criterion_2 = nn.CrossEntropyLoss()
 
 def train(epoch):
     model.train()
@@ -159,6 +160,8 @@ def train(epoch):
             for model_tc in models:
                 output_tc.append(model_tc(data))
         loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models) 
+        supervised_loss = criterion_2(output, target)
+        loss += supervised_loss
         loss.backward()
         optimizer.step()
         avg_loss += loss.item() 
