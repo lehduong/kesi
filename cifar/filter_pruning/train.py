@@ -148,7 +148,7 @@ def main():
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
                                                   milestones=args.schedule, 
-                                                  gamma=0.1)
+                                                  gamma=args.gamma)
     # Resume
     title = 'cifar-10-' + args.arch
     if args.resume:

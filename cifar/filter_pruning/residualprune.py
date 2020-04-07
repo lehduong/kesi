@@ -115,6 +115,12 @@ elif args.arch == 'wrn_28_10':
                     ('block2.layer.0',0.2), ('block2.layer.1',0.2), ('block2.layer.2',0.2), ('block2.layer.3',0.2),
                     ('block3.layer.0',0.3), ('block3.layer.1',0.3), ('block3.layer.2',0.3), ('block3.layer.3',0.3),
                    ]
+elif args.arch == 'wrn_16_8':
+    pruning_plan = [
+                    ('block1.layer.0',0.1), ('block1.layer.1',0.1),
+                    ('block2.layer.0',0.2), ('block2.layer.1',0.2),
+                    ('block3.layer.0',0.3), ('block3.layer.1',0.3),
+                   ]
 else:
     raise ValueError("Expect arch to be one of [resnet56, resnet110, wrn_28_10] but got {}".format(args.arch))
 
@@ -128,49 +134,66 @@ def filter_pruning(model, pruning_plan):
         num_keep = int(out_channels*(1-prune_prob))
         cfg.append(num_keep)
     # construct pruned network
-    new_model = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=cfg)
+    new_model = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=cfg) 
     # copy weight from original network to new network
     is_last_conv_pruned = False
     mask = None # mask of pruned layer
     for [m0, m1] in zip(model.modules(), new_model.modules()):
         if isinstance(m0, nn.Conv2d):
+            is_channel_pruned = False
+            pre_prune_shape = m1.weight.data.shape
             # current layer is not modified 
             if (m0.in_channels == m1.in_channels) and (m0.out_channels == m1.out_channels):
                 m1.weight.data = m0.weight.data.clone()
                 is_last_conv_pruned = False
+            # CASE 1: PREVIOUS layer is pruned
             # remove the input weights corresponding to removed filter
             # Importance: as some layer could be pruned while having prior layer pruned as well
             # hence, it's crucial to set this condition above the m0.out_channels > m1.out_channels
             # as the is_last_conv_pruned flag would be set to False and can be rewrite if aforemention situation happend
             if m0.in_channels > m1.in_channels:
                 # the filter would always
-                idx = np.squeeze(np.argwhere(np.asarray(mask.cpu().numpy())))
-                if idx.size == 1:
-                    idx = np.resize(idx, (1,))
-                w = m0.weight.data[:, idx.tolist(), :, :].clone()
+                channel_idx = np.squeeze(np.argwhere(np.asarray(mask.cpu().numpy())))
+                if channel_idx.size == 1:
+                    channel_idx = np.resize(channel_idx, (1,))
+                w = m0.weight.data[:, channel_idx.tolist(), :, :].clone()
                 m1.weight.data = w.clone()
-                is_last_conv_pruned = False 
-            # current layer's filters are pruned
+                is_last_conv_pruned = False
+                is_channel_pruned = True  
+            # CASE 2: CURRENT layer's filters are pruned
             # copy kept filter weight to new model
             if m0.out_channels > m1.out_channels:
                 mask = create_l1_norm_mask(m0, m1.out_channels) 
-                idx = np.squeeze(np.argwhere(np.asarray(mask.cpu().numpy())))
-                if idx.size == 1:
-                    idx = np.resize(idx, (1,))
-                w = m0.weight.data[idx.tolist(), :, :, :].clone()
+                filter_idx = np.squeeze(np.argwhere(np.asarray(mask.cpu().numpy())))
+                if filter_idx.size == 1:
+                    filter_idx = np.resize(filter_idx, (1,))
+                if not is_channel_pruned:
+                    # only filter is pruned
+                    w = m0.weight.data[filter_idx.tolist(), :, :, :].clone()
+                else:
+                    # both channel and filter are pruned
+                    w = m0.weight.data[filter_idx.tolist(), :, :, :].clone()
+                    w = w[:, channel_idx.tolist(), :, :]
                 m1.weight.data = w.clone()
-                is_last_conv_pruned = True 
+                is_last_conv_pruned = True
+            after_prune_shape = m1.weight.data.shape
+            if pre_prune_shape != after_prune_shape:
+                print(pre_prune_shape)
+                print(after_prune_shape)
+                print(m0)
+                print(m1)
+                raise Exception('Pruned weight and its prepruned weight have mismatch shape')
         # adjust batchnorm with corresponding filter
         elif isinstance(m0, nn.BatchNorm2d):
             # if last conv layer is pruned then modify the batchnorm as well
             if is_last_conv_pruned:
-                idx = np.squeeze(np.argwhere(np.asarray(mask.cpu().numpy())))
-                if idx.size == 1:
-                    idx = np.resize(idx, (1,))
-                m1.weight.data = m0.weight.data[idx.tolist()].clone()
-                m1.bias.data = m0.bias.data[idx.tolist()].clone()
-                m1.running_mean = m0.running_mean[idx.tolist()].clone()
-                m1.running_var = m0.running_var[idx.tolist()].clone()
+                filter_idx = np.squeeze(np.argwhere(np.asarray(mask.cpu().numpy())))
+                if filter_idx.size == 1:
+                    filter_idx = np.resize(filter_idx, (1,))
+                m1.weight.data = m0.weight.data[filter_idx.tolist()].clone()
+                m1.bias.data = m0.bias.data[filter_idx.tolist()].clone()
+                m1.running_mean = m0.running_mean[filter_idx.tolist()].clone()
+                m1.running_var = m0.running_var[filter_idx.tolist()].clone()
             # if the last conv layer wasn't modified then simply copy weights
             else:
                 m1.weight.data = m0.weight.data.clone()
@@ -197,11 +220,9 @@ def create_l1_norm_mask(layer, num_keep):
     L1_norm = np.sum(weight_copy, axis=(1,2,3))
     arg_max = np.argsort(L1_norm)
     arg_max_rev = arg_max[::-1][:num_keep]
-
     # create mask
     mask = torch.zeros(out_channels)
     mask[arg_max_rev.tolist()] = 1
-    
     return mask 
 
 if __name__ == '__main__':

@@ -13,7 +13,7 @@ from torchvision import datasets, transforms
 from torch.autograd import Variable
 from functools import reduce
 from utils.misc import get_conv_zero_param
-from utils import KLDivergenceLoss
+from utils.losses import KLDivergenceLoss
 
 
 # Training settings

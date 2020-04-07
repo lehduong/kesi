@@ -12,7 +12,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 from functools import reduce
-from utils import KLDivergenceLoss
+from utils.losses import KLDivergenceLoss
 
 
 # Training settings
@@ -21,7 +21,7 @@ parser.add_argument('--dataset', type=str, default='cifar100',
                     help='training dataset (default: cifar100)')
 parser.add_argument('--refine', default='', type=str, metavar='PATH',
                     help='path to the pruned model to be fine tuned')
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=256, metavar='N',
                     help='input batch size for testing (default: 256)')
@@ -33,7 +33,11 @@ parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                     help='learning rate (default: 0.1)')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                     help='SGD momentum (default: 0.9)')
-parser.add_argument('--weight-decay', '--wd', default=0, type=float,
+parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
+                    help='Decrease learning rate at these epochs.')
+parser.add_argument('--gamma', type=float, default=0.2, 
+                    help='LR is multiplied by gamma on schedule.')
+parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 0)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
@@ -51,11 +55,11 @@ parser.add_argument('--depth', default=16, type=int,
                     help='depth of the neural network')
 
 checkpoint_paths = ['checkpoints/model_best.pth.tar', 
-                    'prune_1/model_best.pth.tar',
-                    'prune_2/model_best.pth.tar',
-                    'prune_3/model_best.pth.tar',
-                    'prune_4/model_best.pth.tar',
-                    'prune_5/model_best.pth.tar',
+                    'prune_1/checkpoint.pth.tar',
+                    'prune_2/checkpoint.pth.tar',
+                    'prune_3/checkpoint.pth.tar',
+                    'prune_4/checkpoint.pth.tar',
+                    'prune_5/checkpoint.pth.tar',
                     ]
 
 args = parser.parse_args()
@@ -123,7 +127,7 @@ if args.refine:
         for param in tmp.parameters():
             param.requires_grad = False  
         models.append(tmp)
-        best_prec1 = checkpoint['best_prec1']
+        best_prec1 = checkpoint['acc'] if 'acc' in checkpoint.keys() else checkpoint['best_prec1']
         print("=> loaded model '{}' (epoch {}) Prec1: {:f}"
               .format(path, checkpoint['epoch'], best_prec1))
 
@@ -134,19 +138,21 @@ if args.cuda:
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
-                                              milestones=[int(0.5*args.epochs), int(0.75*args.epochs)],
-                                              gamma=0.2)
+                                              milestones=args.schedule,
+                                              gamma=args.gamma)
 
 criterion = KLDivergenceLoss(temperature=5)
+criterion_2 = nn.CrossEntropyLoss()
 
 def train(epoch):
     model.train()
     avg_loss = 0.
     train_acc = 0.
+    lr = next(iter(optimizer.param_groups))['lr']
+    print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, lr))
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data), Variable(target)
         output = model(data)
         optimizer.zero_grad()
         output_tc = []
@@ -154,14 +160,16 @@ def train(epoch):
             for model_tc in models:
                 output_tc.append(model_tc(data))
         loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models) 
+        supervised_loss = criterion_2(output, target)
+        loss += supervised_loss
         loss.backward()
+        optimizer.step()
         avg_loss += loss.item() 
         pred = output.data.max(1, keepdim=True)[1]
         train_acc += pred.eq(target.data.view_as(pred)).cpu().sum()
-        optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.2f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
+                epoch+1, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
     lr_scheduler.step()
 
@@ -171,6 +179,7 @@ def test():
     correct = 0
     test_loss_ens = 0
     correct_ens = 0
+    softmax = nn.Softmax(dim=1)
     with torch.no_grad():
         for data, target in test_loader:
             if args.cuda:
@@ -185,7 +194,7 @@ def test():
             output_ens = torch.zeros_like(output)
             for m in models:
                 tmp_output = m(data) 
-                output_ens += tmp_output
+                output_ens += softmax(tmp_output)
             test_loss_ens += F.cross_entropy(output_ens, target, size_average=False) # sum up batch loss
             pred_ens = output_ens.data.max(1, keepdim=True)[1] # get the index of the max log-probability
             correct_ens += pred_ens.eq(target.view_as(pred)).cpu().sum()
@@ -211,7 +220,7 @@ for epoch in range(args.start_epoch, args.epochs):
     save_checkpoint({
         'epoch': epoch + 1,
         'state_dict': model.state_dict(),
-        'best_prec1': best_prec1,
+        'acc': best_prec1,
         'optimizer': optimizer.state_dict(),
         'cfg': model.cfg
     }, is_best, filepath=args.save)

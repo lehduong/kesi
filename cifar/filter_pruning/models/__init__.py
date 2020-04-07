@@ -23,5 +23,11 @@ def resnet110(dataset='cifar10', cfg=None):
 def preresnet110(dataset='cifar10', cfg=None, block_name='basicblock'):
     return preresnet(depth=110, dataset=dataset,cfg=cfg, block_name=block_name)
 
+def preresnet164(dataset='cifar10', cfg=None, block_name='bottleneck'):
+    return preresnet(depth=164, dataset=dataset, cfg=cfg, block_name=block_name)
+
 def wrn_28_10(dataset='cifar10', cfg=None, dropRate=0.3):
     return wrn(depth=28,widen_factor=10,dataset=dataset,cfg=cfg,dropRate=dropRate)
+
+def wrn_16_8(dataset='cifar10', cfg=None, dropRate=0.0):
+    return wrn(depth=16,widen_factor=8,dataset=dataset,cfg=cfg,dropRate=dropRate)

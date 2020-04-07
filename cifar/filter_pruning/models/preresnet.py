@@ -10,7 +10,7 @@ https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
 import torch.nn as nn
 import math
 from functools import reduce
-
+from .base_model import BaseModel
 
 __all__ = ['preresnet']
 
@@ -91,7 +91,7 @@ class Bottleneck(nn.Module):
         return out
 
 
-class PreResNet(nn.Module):
+class PreResNet(BaseModel):
     def __init__(self, depth=110, dataset='cifar10', block_name='BasicBlock', cfg=None):
         super(PreResNet, self).__init__()
         # Model type specifies number of layers for CIFAR-10 model
