@@ -40,8 +40,8 @@ parser.add_argument('--test-batch', default=50, type=int, metavar='N',
                     help='test batchsize')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     metavar='LR', help='initial learning rate')
-parser.add_argument('--use_onecycle', default=True, type=bool, metavar='LR',
-                    help='Use OneCycle Policy or not (default: True)')
+parser.add_argument('--use-onecycle', dest='use_onecycle', action='store_true')
+parser.add_argument('--no-onecycle', dest='use_onecycle', action='store_false')
 parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
                     help='Decrease learning rate at these epochs.')
 parser.add_argument('--gamma', type=float, default=0.1, 
@@ -73,6 +73,7 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 parser.add_argument('--save_dir', default='test_checkpoint/', type=str)
 #Device options
 parser.add_argument('--percent', default=0.6, type=float)
+parser.set_defaults(use_onecycle=True)
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}

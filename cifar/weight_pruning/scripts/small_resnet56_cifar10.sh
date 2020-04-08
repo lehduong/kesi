@@ -8,6 +8,7 @@ python cifar_prune.py --arch resnet56 \
 python cifar_finetune.py --arch resnet56 \
                          --dataset cifar10 \
                          --resume prune_1/pruned.pth.tar \
+                         --no-onecycle \
                          --save_dir prune_1 &&
 # prune_2 39%
 echo "PRUNE 2" &&
@@ -19,6 +20,7 @@ python cifar_prune.py --arch resnet56 \
 python cifar_finetune.py --arch resnet56 \
                          --dataset cifar10  \
                          --resume prune_2/pruned.pth.tar \
+                         --no-onecycle \
                          --save_dir prune_2 &&
 # prune_3 51%
 echo "PRUNE 3" &&
@@ -30,6 +32,7 @@ python cifar_prune.py --arch resnet56 \
 python cifar_finetune.py --arch resnet56 \
                          --dataset cifar10  \
                          --resume prune_3/pruned.pth.tar \
+                         --no-onecycle \
                          --save_dir prune_3 &&
 # prune_4 59%
 echo "PRUNE 4" &&
@@ -41,6 +44,7 @@ python cifar_prune.py --arch resnet56 \
 python cifar_finetune.py --arch resnet56 \
                          --dataset cifar10  \
                          --resume prune_4/pruned.pth.tar \
+                         --no-onecycle \
                          --save_dir prune_4 &&
 # prune_5 66%
 echo "PRUNE 5" && 
@@ -52,6 +56,7 @@ python cifar_prune.py --arch resnet56 \
 python cifar_finetune.py --arch resnet56 \
                          --dataset cifar10  \
                          --resume prune_5/pruned.pth.tar \
+                         --no-onecycle \
                          --save_dir prune_5 &&
 # ensemble_finetune
 echo "ENSEMBLE FINETUNE" &&
