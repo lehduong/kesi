@@ -40,6 +40,12 @@ parser.add_argument('--test-batch', default=50, type=int, metavar='N',
                     help='test batchsize')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     metavar='LR', help='initial learning rate')
+parser.add_argument('--use_onecycle', default=True, type=bool, metavar='LR',
+                    help='Use OneCycle Policy or not (default: True)')
+parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
+                    help='Decrease learning rate at these epochs.')
+parser.add_argument('--gamma', type=float, default=0.1, 
+                    help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--drop', '--dropout', default=0, type=float,
                     metavar='Dropout', help='Dropout ratio')
 parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
@@ -134,9 +140,12 @@ def main():
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay) # default is 0.001
-    lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
-                                                epochs=args.epochs, steps_per_epoch=len(trainloader), pct_start=0.1,
-                                                final_div_factor=1000)
+    if args.use_onecycle:
+        lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
+                                                     epochs=args.epochs, steps_per_epoch=len(trainloader), pct_start=0.1,
+                                                     final_div_factor=1000)
+    else:
+        lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.schedule, gamma=args.gamma)
     # Resume
     title = 'cifar-10-' + args.arch
     if args.resume:
@@ -223,7 +232,8 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda, lr_schedule
                 m.weight.grad.data.mul_(mask)
         #-----------------------------------------
         optimizer.step()
-        lr_scheduler.step()
+        if isinstance(lr_scheduler, torch.optim.OneCycleLR):
+            lr_scheduler.step()
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
@@ -241,6 +251,8 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda, lr_schedule
                     top5=top5.avg,
                     )
         bar.next()
+    if not isinstance(lr_scheduler, torch.optim.OneCycleLR):
+        lr_scheduler.step()
     bar.finish()
     return (losses.avg, top1.avg)
 
@@ -298,13 +310,6 @@ def test(testloader, model, criterion, epoch, use_cuda):
 def save_checkpoint(state, is_best, checkpoint, filename='finetuned.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
-
-def adjust_learning_rate(optimizer, epoch):
-    global state
-    if epoch in args.schedule:
-        state['lr'] *= args.gamma
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = state['lr']
 
 if __name__ == '__main__':
     main()
