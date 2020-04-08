@@ -48,9 +48,6 @@ parser.add_argument('--gamma', type=float, default=0.1,
                     help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--drop', '--dropout', default=0, type=float,
                     metavar='Dropout', help='Dropout ratio')
-parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
-                        help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
@@ -232,7 +229,7 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda, lr_schedule
                 m.weight.grad.data.mul_(mask)
         #-----------------------------------------
         optimizer.step()
-        if isinstance(lr_scheduler, torch.optim.OneCycleLR):
+        if isinstance(lr_scheduler, torch.optim.lr_scheduler.OneCycleLR):
             lr_scheduler.step()
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -251,7 +248,7 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda, lr_schedule
                     top5=top5.avg,
                     )
         bar.next()
-    if not isinstance(lr_scheduler, torch.optim.OneCycleLR):
+    if not isinstance(lr_scheduler, torch.optim.lr_scheduler.OneCycleLR):
         lr_scheduler.step()
     bar.finish()
     return (losses.avg, top1.avg)
