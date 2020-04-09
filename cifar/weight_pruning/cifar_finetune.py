@@ -141,7 +141,7 @@ def main():
     if args.use_onecycle:
         lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
                                                      epochs=args.epochs, steps_per_epoch=len(trainloader), pct_start=0.1,
-                                                     final_div_factor=1000)
+                                                     final_div_factor=100)
     else:
         lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.schedule, gamma=args.gamma)
     # Resume

@@ -118,7 +118,7 @@ if args.use_onecycle:
     print('=> using OneCycle Policy')
     lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
                                                 epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
-                                                final_div_factor=1000)
+                                                final_div_factor=100)
 if args.resume:
     if os.path.isfile(args.resume):
         print("=> loading checkpoint '{}'".format(args.resume))
