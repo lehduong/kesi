@@ -4,8 +4,7 @@ python vggprune.py --dataset cifar100 \
                    --arch vgg16 \
                    --model checkpoints/model_best.pth.tar \
                    --save prune_1 && 
-python finetune.py --lr 0.01 \
-                   --gamma 0.2 \
+python finetune.py --gamma 0.2 \
                    --schedule 50 \
                    --refine prune_1/pruned.pth.tar \
                    --dataset cifar100 \
@@ -17,8 +16,7 @@ python vggprune.py --dataset cifar100 \
                    --arch vgg16 \
                    --model prune_1/checkpoint.pth.tar \
                    --save prune_2 && 
-python finetune.py --lr 0.01 \
-                   --gamma 0.2 \
+python finetune.py --gamma 0.2 \
                    --schedule 50 \
                    --refine prune_2/pruned.pth.tar \
                    --dataset cifar100 \
@@ -30,8 +28,7 @@ python vggprune.py --dataset cifar100 \
                    --arch vgg16 \
                    --model prune_2/checkpoint.pth.tar \
                    --save prune_3 && 
-python finetune.py --lr 0.01 \
-                   --gamma 0.2 \
+python finetune.py --gamma 0.2 \
                    --schedule 50 \
                    --refine prune_3/pruned.pth.tar \
                    --dataset cifar100 \
@@ -43,8 +40,7 @@ python vggprune.py --dataset cifar100 \
                    --arch vgg16 \
                    --model prune_3/checkpoint.pth.tar \
                    --save prune_4 && 
-python finetune.py --lr 0.01 \
-                   --gamma 0.2 \
+python finetune.py --gamma 0.2 \
                    --schedule 50 \
                    --refine prune_4/pruned.pth.tar \
                    --dataset cifar100 \
@@ -56,8 +52,7 @@ python vggprune.py --dataset cifar100 \
                    --arch vgg16 \
                    --model prune_4/checkpoint.pth.tar \
                    --save prune_5 && 
-python finetune.py --lr 0.01 \
-                   --gamma 0.2 \
+python finetune.py --gamma 0.2 \
                    --schedule 50 \
                    --refine prune_5/pruned.pth.tar \
                    --dataset cifar100 \
