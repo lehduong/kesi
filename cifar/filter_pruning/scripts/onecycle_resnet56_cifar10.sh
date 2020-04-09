@@ -55,5 +55,5 @@ python ensemble_finetune.py --lr 0.01 \
                             --gamma 0.2 \
                             --schedule 20 30 \
                             --wd 1e-4 \
-                            --refine prune_5/finetuned.pth.tar \
+                            --refine prune_5/checkpoint.pth.tar \
                             --dataset cifar10 --save snapshot_ensemble --arch resnet56
