@@ -70,7 +70,7 @@ python cifar_finetune.py --arch resnet110 \
                          --save_dir prune_5 &&
 # ensemble_finetune
 echo "ENSEMBLE FINETUNE" &&
-python ensemble_finetune.py --lr 0.01 \
+python ensemble_finetune.py --lr 0.1 \
                             --schedule 20 30\
                             --gamma 0.2
                             --batch-size 128 \

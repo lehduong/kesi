@@ -30,7 +30,7 @@ parser.add_argument('--epochs', type=int, default=40, metavar='N',
                     help='number of epochs to train (default: 160)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
+parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                     help='learning rate (default: 0.1)')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                     help='SGD momentum (default: 0.9)')
@@ -136,7 +136,9 @@ optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, we
 lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
                                               milestones=[int(0.5*args.epochs), int(0.75*args.epochs)],
                                               gamma=0.2)
-
+lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
+                                                     epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
+                                                     final_div_factor=100)
 criterion = KLDivergenceLoss(temperature=5)
 
 def train(epoch):
@@ -176,7 +178,7 @@ def train(epoch):
             print('Train Epoch: {} [{}/{} ({:.2f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
-    lr_scheduler.step()
+        lr_scheduler.step()
 
 def test():
     model.eval()

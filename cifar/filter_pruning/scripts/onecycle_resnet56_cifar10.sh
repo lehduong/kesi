@@ -50,7 +50,7 @@ python finetune.py  --refine prune_5/pruned.pth.tar \
                     --save prune_5 &&
 # ensemble finetune
 echo "ENSEMBLE FINETUNE" &&
-python ensemble_finetune.py --lr 0.01 \
+python ensemble_finetune.py --lr 0.1 \
                             --batch-size 128 \
                             --gamma 0.2 \
                             --schedule 20 30 \

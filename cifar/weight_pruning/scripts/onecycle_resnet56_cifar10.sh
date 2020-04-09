@@ -55,7 +55,7 @@ python cifar_finetune.py --arch resnet56 \
                          --save_dir prune_5 &&
 # ensemble_finetune
 echo "ENSEMBLE FINETUNE" &&
-python ensemble_finetune.py --lr 0.01 \
+python ensemble_finetune.py --lr 0.1 \
                             --batch-size 128 \
                             --wd 1e-4 \
                             --refine prune_5/finetuned.pth.tar \
