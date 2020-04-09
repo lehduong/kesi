@@ -6,6 +6,8 @@ python cifar_prune.py --arch wrn_16_8 \
                       --resume checkpoints/model_best.pth.tar \
                       --save_dir prune_1 &&
 python cifar_finetune.py --arch wrn_16_8 \
+                         --lr 0.001 \
+                         --schedule 50\
                          --dataset cifar100 \
                          --resume prune_1/pruned.pth.tar \
                          --no-onecycle\
@@ -18,6 +20,8 @@ python cifar_prune.py --arch wrn_16_8 \
                       --resume prune_1/finetuned.pth.tar \
                       --save_dir prune_2 &&
 python cifar_finetune.py --arch wrn_16_8 \
+                         --lr 0.001 \
+                         --schedule 50\
                          --dataset cifar100 \
                          --resume prune_2/pruned.pth.tar \
                          --no-onecycle\
@@ -25,6 +29,8 @@ python cifar_finetune.py --arch wrn_16_8 \
 # prune_3 60%
 echo "PRUNE 3" &&
 python cifar_prune.py --arch wrn_16_8 \
+                      --lr 0.001 \
+                      --schedule 50\
                       --dataset cifar100 \
                       --percent 0.60 \
                       --resume prune_2/finetuned.pth.tar \
@@ -42,6 +48,8 @@ python cifar_prune.py --arch wrn_16_8 \
                       --resume prune_3/finetuned.pth.tar \
                       --save_dir prune_4 &&
 python cifar_finetune.py --arch wrn_16_8 \
+                         --lr 0.001 \
+                         --schedule 50\
                          --dataset cifar100 \
                          --resume prune_4/pruned.pth.tar \
                          --no-onecycle \
@@ -54,6 +62,8 @@ python cifar_prune.py --arch wrn_16_8 \
                       --resume prune_4/finetuned.pth.tar \
                       --save_dir prune_5 &&
 python cifar_finetune.py --arch wrn_16_8 \
+                         --lr 0.001 \
+                         --schedule 50\
                          --dataset cifar100  \
                          --resume prune_5/pruned.pth.tar \
                          --no-onecycle \
@@ -61,6 +71,8 @@ python cifar_finetune.py --arch wrn_16_8 \
 # ensemble_finetune
 echo "ENSEMBLE FINETUNE" && 
 python ensemble_finetune.py --lr 0.01 \
+                            --gamma 0.2 \
+                            --schedule 20 30\
                             --batch-size 128 \
                             --wd 1e-4 \
                             --refine prune_5/finetuned.pth.tar \
