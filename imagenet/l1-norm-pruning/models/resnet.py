@@ -4,11 +4,14 @@ import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 from torch.autograd import Variable
-
+from functools import reduce
+from .base_model import BaseModel
 
 model_urls = {
+    'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
     'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
 }
+BLOCKS_LEVEL_SPLIT_CHAR = '.'
 
 def conv3x3(in_planes, out_planes, stride=1):
     "3x3 convolution with padding"
@@ -85,16 +88,16 @@ class Bottleneck(nn.Module):
 
         return out
 
-class ResNet(nn.Module):
+class ResNet(BaseModel):
 
     def __init__(self, block, layers, cfg=None, num_classes=1000):
         self.inplanes = 64
         super(ResNet, self).__init__()
-        if cfg == None:
-            self.cfg = [[64] * layers[0], [128]*layers[1], [256]*layers[2], [512]*layers[3]]
-            self.cfg = [item for sub_list in cfg for item in sub_list]
-        else:
-            self.cfg = cfg
+        if cfg is None:
+            cfg = [[64] * layers[0], [128]*layers[1], [256]*layers[2], [512]*layers[3]]
+            cfg = [item for sub_list in cfg for item in sub_list]
+
+        self.cfg = cfg
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
@@ -110,8 +113,8 @@ class ResNet(nn.Module):
         count += layers[2]
         self.layer4 = self._make_layer(block, 512, layers[3], cfg[count:count+layers[3]], stride=2)
         self.avgpool = nn.AvgPool2d(7, stride=1)
-        # self.fc = nn.Linear(512 * block.expansion, num_classes)
-        self.fc = nn.Linear(cfg[-1], num_classes)
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        # self.fc = nn.Linear(cfg[-1], num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -161,20 +164,18 @@ def resnet34(pretrained=False, num_classes=1000, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(BasicBlock, [3, 4, 6, 3], cfg=kwargs.get('cfg'))
+    model = ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_classes, cfg=kwargs.get('cfg'))
     if pretrained:
         state_dict_loaded = model_zoo.load_url(model_urls['resnet34'])
-        last_num_channels = model.fc.in_features
-        fc_replace = nn.Linear(last_num_channels, num_classes)
         model.load_state_dict(state_dict_loaded)
-        model.fc = fc_replace
 
     return model
 
 
 def resnet18(pretrained=False, num_classes=1000, **kwargs):
-    model = torch.hub.load('pytorch/vision:v0.5.0', 'resnet18', pretrained=pretrained)
-    last_num_channels = model.fc.in_features
-    fc_replace = nn.Linear(last_num_channels, num_classes)
-    model.fc = fc_replace
+    model = ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes, cfg=kwargs.get('cfg'))
+    if pretrained:
+        state_dict_loaded = model_zoo.load_url(model_urls['resnet18'])
+        model.load_state_dict(state_dict_loaded)
+
     return model
