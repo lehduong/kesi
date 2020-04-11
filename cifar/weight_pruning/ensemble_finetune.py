@@ -30,12 +30,16 @@ parser.add_argument('--epochs', type=int, default=40, metavar='N',
                     help='number of epochs to train (default: 160)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
+parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                     help='learning rate (default: 0.1)')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                     help='SGD momentum (default: 0.9)')
 parser.add_argument('--weight-decay', '--wd', default=0, type=float,
                     metavar='W', help='weight decay (default: 0)')
+parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
+                    help='Decrease learning rate at these epochs.')
+parser.add_argument('--gamma', type=float, default=0.1, 
+                    help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -56,6 +60,7 @@ checkpoint_paths = ['checkpoints/cifar10/resnet-110/model_best.pth.tar',
                     'prune_2/finetuned.pth.tar',
                     'prune_3/finetuned.pth.tar',
                     'prune_4/finetuned.pth.tar',
+                    'prune_5/finetuned.pth.tar',
                     ]
 
 args = parser.parse_args()
@@ -134,9 +139,11 @@ if args.cuda:
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
-                                              milestones=[int(0.5*args.epochs), int(0.75*args.epochs)],
-                                              gamma=0.2)
-
+                                              milestones=args.schedule,
+                                              gamma=args.gamma)
+lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
+                                                     epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
+                                                     final_div_factor=100)
 criterion = KLDivergenceLoss(temperature=5)
 
 def train(epoch):
@@ -176,7 +183,7 @@ def train(epoch):
             print('Train Epoch: {} [{}/{} ({:.2f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
-    lr_scheduler.step()
+        lr_scheduler.step()
 
 def test():
     model.eval()
@@ -184,6 +191,7 @@ def test():
     correct = 0
     test_loss_ens = 0
     correct_ens = 0
+    softmax = nn.Softmax(dim=1)
     with torch.no_grad():
         for data, target in test_loader:
             if args.cuda:
@@ -198,7 +206,7 @@ def test():
             output_ens = torch.zeros_like(output)
             for m in models:
                 tmp_output = m(data) 
-                output_ens += tmp_output
+                output_ens += softmax(tmp_output)
             test_loss_ens += F.cross_entropy(output_ens, target, size_average=False) # sum up batch loss
             pred_ens = output_ens.data.max(1, keepdim=True)[1] # get the index of the max log-probability
             correct_ens += pred_ens.eq(target.view_as(pred)).cpu().sum()

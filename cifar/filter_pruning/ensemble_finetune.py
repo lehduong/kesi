@@ -29,7 +29,7 @@ parser.add_argument('--epochs', type=int, default=40, metavar='N',
                     help='number of epochs to train (default: 160)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
+parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                     help='learning rate (default: 0.1)')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                     help='SGD momentum (default: 0.9)')
@@ -54,7 +54,7 @@ parser.add_argument('--arch', default='vgg', type=str,
 parser.add_argument('--depth', default=16, type=int,
                     help='depth of the neural network')
 
-checkpoint_paths = ['checkpoints/model_best.pth.tar', 
+checkpoint_paths = ['checkpoints/cifar100/resnet-110/model_best.pth.tar', 
                     'prune_1/checkpoint.pth.tar',
                     'prune_2/checkpoint.pth.tar',
                     'prune_3/checkpoint.pth.tar',
@@ -140,9 +140,10 @@ optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, we
 lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
                                               milestones=args.schedule,
                                               gamma=args.gamma)
-
+lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
+                                                     epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
+                                                     final_div_factor=100)
 criterion = KLDivergenceLoss(temperature=5)
-criterion_2 = nn.CrossEntropyLoss()
 
 def train(epoch):
     model.train()
@@ -160,8 +161,6 @@ def train(epoch):
             for model_tc in models:
                 output_tc.append(model_tc(data))
         loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models) 
-        supervised_loss = criterion_2(output, target)
-        loss += supervised_loss
         loss.backward()
         optimizer.step()
         avg_loss += loss.item() 
@@ -171,7 +170,7 @@ def train(epoch):
             print('Train Epoch: {} [{}/{} ({:.2f}%)]\tLoss: {:.6f}'.format(
                 epoch+1, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
-    lr_scheduler.step()
+        lr_scheduler.step()
 
 def test():
     model.eval()

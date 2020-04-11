@@ -40,11 +40,14 @@ parser.add_argument('--test-batch', default=50, type=int, metavar='N',
                     help='test batchsize')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     metavar='LR', help='initial learning rate')
+parser.add_argument('--use-onecycle', dest='use_onecycle', action='store_true')
+parser.add_argument('--no-onecycle', dest='use_onecycle', action='store_false')
+parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
+                    help='Decrease learning rate at these epochs.')
+parser.add_argument('--gamma', type=float, default=0.1, 
+                    help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--drop', '--dropout', default=0, type=float,
                     metavar='Dropout', help='Dropout ratio')
-parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
-                        help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
@@ -70,6 +73,7 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 parser.add_argument('--save_dir', default='test_checkpoint/', type=str)
 #Device options
 parser.add_argument('--percent', default=0.6, type=float)
+parser.set_defaults(use_onecycle=True)
 
 args = parser.parse_args()
 state = {k: v for k, v in args._get_kwargs()}
@@ -126,36 +130,7 @@ def main():
 
     # Model
     print("==> creating model '{}'".format(args.arch))
-    if args.arch.startswith('resnext'):
-        model = models.__dict__[args.arch](
-                    cardinality=args.cardinality,
-                    num_classes=num_classes,
-                    depth=args.depth,
-                    widen_factor=args.widen_factor,
-                    dropRate=args.drop,
-                )
-    elif args.arch.startswith('densenet'):
-        model = models.__dict__[args.arch](
-                    num_classes=num_classes,
-                    depth=args.depth,
-                    growthRate=args.growthRate,
-                    compressionRate=args.compressionRate,
-                    dropRate=args.drop,
-                )
-    elif args.arch.startswith('wrn'):
-        model = models.__dict__[args.arch](
-                    num_classes=num_classes,
-                    depth=args.depth,
-                    widen_factor=args.widen_factor,
-                    dropRate=args.drop,
-                )
-    elif args.arch.endswith('resnet'):
-        model = models.__dict__[args.arch](
-                    num_classes=num_classes,
-                    depth=args.depth,
-                )
-    else:
-        model = models.__dict__[args.arch](dataset=args.dataset)
+    model = models.__dict__[args.arch](dataset=args.dataset)
 
     model = model.cuda()
     cudnn.benchmark = True
@@ -163,7 +138,12 @@ def main():
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay) # default is 0.001
-
+    if args.use_onecycle:
+        lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
+                                                     epochs=args.epochs, steps_per_epoch=len(trainloader), pct_start=0.1,
+                                                     final_div_factor=100)
+    else:
+        lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.schedule, gamma=args.gamma)
     # Resume
     title = 'cifar-10-' + args.arch
     if args.resume:
@@ -178,19 +158,18 @@ def main():
 
     # Train and val
     for epoch in range(start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch)
-
-        print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, state['lr']))
+        lr = next(iter(optimizer.param_groups))['lr']
+        print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, lr))
         num_parameters = get_conv_zero_param(model)
         print('Zero parameters: {}'.format(num_parameters))
         num_parameters = sum([param.nelement() for param in model.parameters()])
         print('Parameters: {}'.format(num_parameters))
 
-        train_loss, train_acc = train(trainloader, model, criterion, optimizer, epoch, use_cuda)
+        train_loss, train_acc = train(trainloader, model, criterion, optimizer, epoch, use_cuda, lr_scheduler)
         test_loss, test_acc = test(testloader, model, criterion, epoch, use_cuda)
 
         # append logger file
-        logger.append([state['lr'], train_loss, test_loss, train_acc, test_acc])
+        logger.append([lr, train_loss, test_loss, train_acc, test_acc])
 
         # save model
         is_best = test_acc > best_acc
@@ -209,7 +188,7 @@ def main():
     print('Best acc:')
     print(best_acc)
 
-def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
+def train(trainloader, model, criterion, optimizer, epoch, use_cuda, lr_scheduler):
     # switch to train mode
     model.train()
 
@@ -251,7 +230,8 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
                 m.weight.grad.data.mul_(mask)
         #-----------------------------------------
         optimizer.step()
-
+        if isinstance(lr_scheduler, torch.optim.lr_scheduler.OneCycleLR):
+            lr_scheduler.step()
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
@@ -269,6 +249,8 @@ def train(trainloader, model, criterion, optimizer, epoch, use_cuda):
                     top5=top5.avg,
                     )
         bar.next()
+    if not isinstance(lr_scheduler, torch.optim.lr_scheduler.OneCycleLR):
+        lr_scheduler.step()
     bar.finish()
     return (losses.avg, top1.avg)
 
@@ -326,13 +308,6 @@ def test(testloader, model, criterion, epoch, use_cuda):
 def save_checkpoint(state, is_best, checkpoint, filename='finetuned.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
-
-def adjust_learning_rate(optimizer, epoch):
-    global state
-    if epoch in args.schedule:
-        state['lr'] *= args.gamma
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = state['lr']
 
 if __name__ == '__main__':
     main()

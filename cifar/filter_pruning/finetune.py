@@ -28,8 +28,8 @@ parser.add_argument('--epochs', type=int, default=40, metavar='N',
                     help='number of epochs to train (default: 160)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('--use_onecycle', default=True, type=bool, metavar='LR',
-                    help='Use OneCycle Policy or not (default: True)')
+parser.add_argument('--use-onecycle', dest='use_onecycle', action='store_true')
+parser.add_argument('--no-onecycle', dest='use_onecycle', action='store_false')
 parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
                     help='Decrease learning rate at these epochs.')
 parser.add_argument('--gamma', type=float, default=0.1, 
@@ -52,8 +52,9 @@ parser.add_argument('--save', default='./logs', type=str, metavar='PATH',
                     help='path to save prune model (default: current directory)')
 parser.add_argument('--arch', default='vgg', type=str, 
                     help='architecture to use')
-
+parser.set_defaults(use_onecycle=True)
 args = parser.parse_args()
+
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
 torch.manual_seed(args.seed)
@@ -117,7 +118,7 @@ if args.use_onecycle:
     print('=> using OneCycle Policy')
     lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
                                                 epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
-                                                final_div_factor=1000)
+                                                final_div_factor=100)
 if args.resume:
     if os.path.isfile(args.resume):
         print("=> loading checkpoint '{}'".format(args.resume))
