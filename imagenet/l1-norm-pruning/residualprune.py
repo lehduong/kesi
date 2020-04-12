@@ -6,7 +6,7 @@ import models as arch_module
 import torch
 import torch.nn as nn
 
-sys.path.append('../..')
+sys.path.append('..')
 from data_loader import TinyImageNet
 from torch.autograd import Variable
 from torchvision import datasets, transforms
@@ -41,7 +41,8 @@ if args.model:
         checkpoint = torch.load(args.model, map_location='cpu')
         args.start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint['best_prec1'] if 'best_prec1' in checkpoint.keys() else checkpoint['acc']
-        model = arch_module.__dict__[args.arch](cfg=checkpoint['cfg'])
+        cfg = checkpoint['cfg'] if 'cfg' in checkpoint.keys() else None
+        model = arch_module.__dict__[args.arch](cfg=cfg)
         model = torch.nn.DataParallel(model)
         model.load_state_dict(checkpoint['state_dict'])
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
@@ -90,9 +91,9 @@ acc = test(model)
 if args.arch == 'resnet18':
     pruning_plan = [
         ('layer1.0', 0.1), ('layer1.1', 0.1),
-        ('layer2.0', 0.0), ('layer2.1', 0.1),
-        ('layer3.0', 0.0), ('layer3.1', 0.1),
-        ('layer4.0', 0.0), ('layer4.1', 0.0)
+        ('layer2.0', 0.1), ('layer2.1', 0.1),
+        ('layer3.0', 0.2), ('layer3.1', 0.2),
+        ('layer4.0', 0.3), ('layer4.1', 0.3)
     ]
 elif args.arch == 'resnet34':
     pruning_plan = [
@@ -108,6 +109,10 @@ else:
 def filter_pruning(model, pruning_plan):
     # get the cfg of pruned network
     cfg = []
+    parallel_instance = False 
+    if isinstance(model, nn.DataParallel):
+        model = model.module 
+        parallel_instance = True
     for block_name, prune_prob in pruning_plan:
         block = model.get_block(block_name)
         conv_layers = list(filter(lambda layer: isinstance(layer, nn.Conv2d), block.modules()))
@@ -115,7 +120,7 @@ def filter_pruning(model, pruning_plan):
         num_keep = int(out_channels*(1-prune_prob))
         cfg.append(num_keep)
     # construct pruned network
-    new_model = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=cfg) 
+    new_model = arch_module.__dict__[args.arch](num_classes=args.num_classes, cfg=cfg) 
     # copy weight from original network to new network
     is_last_conv_pruned = False
     mask = None # mask of pruned layer
@@ -185,6 +190,8 @@ def filter_pruning(model, pruning_plan):
         elif isinstance(m0, nn.Linear):
             m1.weight.data = m0.weight.data.clone()
             m1.bias.data = m0.bias.data.clone()
+    if parallel_instance:
+        new_model = nn.DataParallel(new_model)
     return new_model
 
 def create_l1_norm_mask(layer, num_keep):
