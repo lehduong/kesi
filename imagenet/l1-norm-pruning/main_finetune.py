@@ -115,12 +115,6 @@ def main():
     if args.refine:
         model.load_state_dict(checkpoint['state_dict'])
 
-    # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
-    
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -183,12 +177,18 @@ def main():
     if args.evaluate:
         validate(val_loader, model, criterion)
         return
+    
+    # define loss function (criterion) and optimizer
+    criterion = nn.CrossEntropyLoss().cuda()
+    optimizer = torch.optim.SGD(model.parameters(), args.lr,
+                                momentum=args.momentum,
+                                weight_decay=args.weight_decay)
     if args.use_onecycle:
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
                                                            epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
                                                            final_div_factor=100)
     else:
-        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimize, milestones=args.scheduler, gamma=args.gamma)
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.scheduler, gamma=args.gamma)
     history_score = np.zeros((args.epochs + 1, 1))
     np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt = '%10.5f', delimiter=',')
     for epoch in range(args.start_epoch, args.epochs):
