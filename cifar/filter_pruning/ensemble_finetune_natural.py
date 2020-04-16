@@ -29,6 +29,8 @@ parser.add_argument('--epochs', type=int, default=40, metavar='N',
                     help='number of epochs to train (default: 160)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
+parser.add_argument('--temperature', type=float, default=5, metavar='N',
+                    help='temperature for knowledge distillation (default: 5)')
 parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                     help='learning rate (default: 0.1)')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
@@ -143,7 +145,7 @@ lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer,
 lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
                                                      epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
                                                      final_div_factor=100)
-criterion = KLDivergenceNoSoftmaxLoss(temperature=5)
+criterion = KLDivergenceNoSoftmaxLoss(temperature=args.temperature)
 
 def train(epoch):
     model.train()
@@ -162,7 +164,7 @@ def train(epoch):
         output_tc = torch.zeros_like(output) 
         with torch.no_grad():
             for model_tc in models:
-                output_tc = output_tc+softmax(model_tc(data))
+                output_tc = output_tc+softmax(model_tc(data)/args.temperature)
             output_tc = output_tc/len(models) # normalized
 
         # optimize

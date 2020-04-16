@@ -43,6 +43,8 @@ parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=128, type=int,
                     metavar='N', help='mini-batch size (default: 256)')
+parser.add_argument('--temperature', type=float, default=5, metavar='N',
+                    help='temperature for knowledge distillation (default: 5)')
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -83,11 +85,10 @@ best_prec1 = 0
 
 checkpoint_paths = [
     "checkpoints/model_best.pth.tar",
-    "prune_1/checkpoint.pth.tar",
-    "prune_2/checkpoint.pth.tar",
-    "prune_3/checkpoint.pth.tar",
-    "prune_4/checkpoint.pth.tar",
-    "prune_5/checkpoint.pth.tar",
+    "pruned_1/checkpoint.pth.tar",
+    "pruned_2/checkpoint.pth.tar",
+    "pruned_3/checkpoint.pth.tar",
+    "pruned_4/checkpoint.pth.tar",
 ]
 
 def main():
@@ -104,7 +105,8 @@ def main():
         # load student
         print("=> loading checkpoint '{}'".format(args.refine))
         checkpoint = torch.load(args.refine, map_location='cpu')
-        model = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
+        cfg = checkpoint['cfg'] if 'cfg' in checkpoint.keys() else None
+        model = arch_module.__dict__[args.arch](num_classes=args.num_classes, cfg=cfg)
         model = nn.DataParallel(model).cuda()
         model.load_state_dict(checkpoint['state_dict'])
         for param in model.parameters():
@@ -114,7 +116,8 @@ def main():
         for checkpoint_path in checkpoint_paths:
             print("=> loading checkpoint '{}'".format(checkpoint_path))
             checkpoint = torch.load(checkpoint_path, map_location='cpu')
-            tmp = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
+            cfg = checkpoint['cfg'] if 'cfg' in checkpoint.keys() else None
+            tmp = arch_module.__dict__[args.arch](num_classes=args.num_classes, cfg=cfg)
             tmp = nn.DataParallel(tmp).cuda()
             tmp.load_state_dict(checkpoint['state_dict'])
             tmp.eval()
@@ -170,7 +173,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
     
     # define loss function (criterion) and optimizer
-    criterion = KLDivergenceLoss(temperature=5)
+    criterion = KLDivergenceLoss(temperature=args.temperature)
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
@@ -182,7 +185,7 @@ def main():
         lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.scheduler, gamma=args.gamma)
     
     if args.evaluate:
-        validate(val_loader, model, criterion)
+        validate(val_loader, model, models, criterion)
         return
 
     history_score = np.zeros((args.epochs + 1, 1))
@@ -207,7 +210,7 @@ def main():
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
             'optimizer' : optimizer.state_dict(),
-            'cfg': model.cfg
+            'cfg': model.module.cfg
         }, is_best, args.save)
 
     history_score[-1] = best_prec1
@@ -284,8 +287,12 @@ def validate(val_loader, model, models, criterion):
 
             # compute output
             output = model(data)
-            loss = criterion(output, target)
-
+            output_tc = list()
+            with torch.no_grad():
+                for model_tc in models:
+                    output_tc.append(model_tc(data))
+            loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models)
+            
             # compute output of ensemble
             output_ens = torch.zeros_like(output)
             for model_tc in models:
@@ -300,7 +307,7 @@ def validate(val_loader, model, models, criterion):
             top5.update(prec5[0], data.size(0))
 
             # measure accuracy of ensemble
-            prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+            prec1, prec5 = accuracy(output_ens.data, target, topk=(1, 5))
             top1_ens.update(prec1[0], data.size(0))
             top5_ens.update(prec5[0], data.size(0))
 

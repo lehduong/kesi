@@ -37,6 +37,6 @@ class KLDivergenceNoSoftmaxLoss(nn.Module):
 
     def forward(self, inputs, targets):
         p_s = F.log_softmax(inputs / self.temperature, dim=1)
-        p_t = targets/self.temperature
+        p_t = targets
         loss = F.kl_div(p_s, p_t) * (self.temperature ** 2)
         return loss
