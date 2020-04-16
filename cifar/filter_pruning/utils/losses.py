@@ -32,7 +32,7 @@ class KLDivergenceNoSoftmaxLoss(nn.Module):
     """
 
     def __init__(self, temperature=1):
-        super(KLDivergenceLoss, self).__init__()
+        super(KLDivergenceNoSoftmaxLoss, self).__init__()
         self.temperature = temperature
 
     def forward(self, inputs, targets):
