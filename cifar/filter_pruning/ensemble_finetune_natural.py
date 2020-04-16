@@ -12,7 +12,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 from functools import reduce
-from utils.losses import KLDivergenceLoss
+from utils.losses import KLDivergenceNoSoftmaxLoss
 
 
 # Training settings
@@ -143,7 +143,7 @@ lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer,
 lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
                                                      epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
                                                      final_div_factor=100)
-criterion = KLDivergenceLoss(temperature=5)
+criterion = KLDivergenceNoSoftmaxLoss(temperature=5)
 
 def train(epoch):
     model.train()
