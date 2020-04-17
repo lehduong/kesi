@@ -12,7 +12,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 from functools import reduce
-from utils.losses import KLDivergenceLoss
+from utils.losses import KLDivergenceNoSoftmaxLoss
 
 
 # Training settings
@@ -145,7 +145,7 @@ lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer,
 lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
                                                      epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
                                                      final_div_factor=100)
-criterion = KLDivergenceLoss(temperature=args.temperature)
+criterion = KLDivergenceNoSoftmaxLoss(temperature=args.temperature)
 
 def train(epoch):
     model.train()
@@ -153,16 +153,22 @@ def train(epoch):
     train_acc = 0.
     lr = next(iter(optimizer.param_groups))['lr']
     print('\nEpoch: [%d | %d] LR: %f' % (epoch + 1, args.epochs, lr))
+    softmax = nn.Softmax(dim=1)
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         output = model(data)
         optimizer.zero_grad()
-        output_tc = []
+
+        # compute ensemble prediction
+        output_tc = torch.zeros_like(output) 
         with torch.no_grad():
             for model_tc in models:
-                output_tc.append(model_tc(data))
-        loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models) 
+                output_tc = output_tc+softmax(model_tc(data)/args.temperature)
+            output_tc = output_tc/len(models) # normalized
+
+        # optimize
+        loss = criterion(output, output_tc) 
         loss.backward()
         optimizer.step()
         avg_loss += loss.item() 

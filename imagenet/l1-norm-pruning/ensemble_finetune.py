@@ -14,15 +14,18 @@ import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import torchvision.models as models
+import torchvision.models as torchvision_models
 import sys
 import models as arch_module
+
 sys.path.append('../')
 from data_loader import TinyImageNet
+from functools import reduce
+from utils.losses import KLDivergenceLoss
 
-model_names = sorted(name for name in models.__dict__
+model_names = sorted(name for name in torchvision_models.__dict__
     if name.islower() and not name.startswith("__")
-    and callable(models.__dict__[name]))
+    and callable(torchvision_models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR',
@@ -40,6 +43,8 @@ parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=128, type=int,
                     metavar='N', help='mini-batch size (default: 256)')
+parser.add_argument('--temperature', type=float, default=5, metavar='N',
+                    help='temperature for knowledge distillation (default: 5)')
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -78,6 +83,13 @@ parser.set_defaults(use_onecycle=True)
 
 best_prec1 = 0
 
+checkpoint_paths = [
+    "checkpoints/model_best.pth.tar",
+    "pruned_1/checkpoint.pth.tar",
+    "pruned_2/checkpoint.pth.tar",
+    "pruned_3/checkpoint.pth.tar",
+    "pruned_4/checkpoint.pth.tar",
+]
 
 def main():
     global args, best_prec1
@@ -88,45 +100,35 @@ def main():
     if not os.path.exists(args.save):
         os.makedirs(args.save)
 
-    if args.distributed:
-        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                world_size=args.world_size)
-    cfg = None
+    # load models:
     if args.refine:
+        # load student
+        print("=> loading checkpoint '{}'".format(args.refine))
         checkpoint = torch.load(args.refine, map_location='cpu')
-        cfg = checkpoint['cfg']
-
-    if args.resume:
-        checkpoint = torch.load(args.resume, map_location='cpu')
-        cfg = checkpoint['cfg']
-
-    model = arch_module.__dict__[args.arch](num_classes=args.num_classes, cfg=cfg)
-
-    if not args.distributed:
-        if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
-            model.features = torch.nn.DataParallel(model.features)
-            model.cuda()
-        else:
-            model = torch.nn.DataParallel(model).cuda()
-    else:
-        model.cuda()
-        model = torch.nn.parallel.DistributedDataParallel(model)
-
-    if args.refine:
+        cfg = checkpoint['cfg'] if 'cfg' in checkpoint.keys() else None
+        model = arch_module.__dict__[args.arch](num_classes=args.num_classes, cfg=cfg)
+        model = nn.DataParallel(model).cuda()
         model.load_state_dict(checkpoint['state_dict'])
-
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            args.start_epoch = checkpoint['epoch']
-            best_prec1 = checkpoint['best_prec1']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch']))
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
+        for param in model.parameters():
+            param.requires_grad = True
+        # load teachers
+        models = list()
+        for checkpoint_path in checkpoint_paths:
+            print("=> loading checkpoint '{}'".format(checkpoint_path))
+            checkpoint = torch.load(checkpoint_path, map_location='cpu')
+            cfg = checkpoint['cfg'] if 'cfg' in checkpoint.keys() else None
+            tmp = arch_module.__dict__[args.arch](num_classes=args.num_classes, cfg=cfg)
+            tmp = nn.DataParallel(tmp).cuda()
+            tmp.load_state_dict(checkpoint['state_dict'])
+            tmp.eval()
+            for param in tmp.parameters():
+                param.requires_grad = False 
+            models.append(tmp)
+            best_prec1 = checkpoint['best_prec1'] if 'best_prec1' in checkpoint.keys() else checkpoint['acc']
+            print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
+                .format(checkpoint_path, checkpoint['epoch'], best_prec1))
+    else:
+        raise ValueError('Please specify refined model')
 
     cudnn.benchmark = True
 
@@ -152,10 +154,6 @@ def main():
             normalize,
         ])
 
-    # train_dataset = datasets.ImageFolder( traindir, training_transform)
-
-    # val_dataset = datasets.ImageFolder(valdir, valid_transform)
-
     # For Tiny ImageNet dataset
     train_dataset = TinyImageNet(args.data, 'train', transform=training_transform, in_memory=False)
     val_dataset = TinyImageNet(args.data, 'val', transform=valid_transform, in_memory=False)
@@ -173,13 +171,9 @@ def main():
         val_dataset,
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
-
-    if args.evaluate:
-        validate(val_loader, model, criterion)
-        return
     
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
+    criterion = KLDivergenceLoss(temperature=args.temperature)
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
@@ -189,6 +183,11 @@ def main():
                                                            final_div_factor=100)
     else:
         lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.scheduler, gamma=args.gamma)
+    
+    if args.evaluate:
+        validate(val_loader, model, models, criterion)
+        return
+
     history_score = np.zeros((args.epochs + 1, 1))
     np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt = '%10.5f', delimiter=',')
     for epoch in range(args.start_epoch, args.epochs):
@@ -197,9 +196,9 @@ def main():
         if args.distributed:
             train_sampler.set_epoch(epoch)
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, lr_scheduler)
+        train(train_loader, model, models, criterion, optimizer, epoch, lr_scheduler)
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion)
+        prec1 = validate(val_loader, model, models, criterion)
         history_score[epoch] = prec1.cpu()
         np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt = '%10.5f', delimiter=',')
         # remember best prec@1 and save checkpoint
@@ -211,14 +210,14 @@ def main():
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
             'optimizer' : optimizer.state_dict(),
-            'cfg': cfg
+            'cfg': model.module.cfg
         }, is_best, args.save)
 
     history_score[-1] = best_prec1
     np.savetxt(os.path.join(args.save, 'record.txt'), history_score, fmt = '%10.5f', delimiter=',')
 
 
-def train(train_loader, model, criterion, optimizer, epoch, lr_scheduler):
+def train(train_loader, model, models, criterion, optimizer, epoch, lr_scheduler):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -235,7 +234,11 @@ def train(train_loader, model, criterion, optimizer, epoch, lr_scheduler):
         data, target = data.cuda(), target.cuda()
         # compute output
         output = model(data)
-        loss = criterion(output, target)
+        output_tc = list()
+        with torch.no_grad():
+            for model_tc in models:
+                output_tc.append(model_tc(data))
+        loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models)
 
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
@@ -265,29 +268,48 @@ def train(train_loader, model, criterion, optimizer, epoch, lr_scheduler):
     if not isinstance(lr_scheduler, torch.optim.lr_scheduler.OneCycleLR):
         lr_scheduler.step()
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, models, criterion):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
+    top1_ens = AverageMeter()
+    top5_ens = AverageMeter()
 
     # switch to evaluate mode
     model.eval()
 
     end = time.time()
+    softmax = nn.Softmax(dim=1)
     with torch.no_grad():
         for i, (data, target) in enumerate(val_loader):
             data, target = data.cuda(), target.cuda()
 
             # compute output
             output = model(data)
-            loss = criterion(output, target)
+            output_tc = list()
+            with torch.no_grad():
+                for model_tc in models:
+                    output_tc.append(model_tc(data))
+            loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models)
+            
+            # compute output of ensemble
+            output_ens = torch.zeros_like(output)
+            for model_tc in models:
+                tmp = model_tc(data)
+                output_ens += softmax(tmp)
+            output_ens /= len(models)
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
             losses.update(loss.item(), data.size(0))
             top1.update(prec1[0], data.size(0))
             top5.update(prec5[0], data.size(0))
+
+            # measure accuracy of ensemble
+            prec1, prec5 = accuracy(output_ens.data, target, topk=(1, 5))
+            top1_ens.update(prec1[0], data.size(0))
+            top5_ens.update(prec5[0], data.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -298,12 +320,14 @@ def validate(val_loader, model, criterion):
                     'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                     'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                     'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                    'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                    'Prec@5 {top5.val:.3f} ({top5.avg:.3f})\t'
+                    'Prec@1 ensemble {top1_ens.val:.3f} ({top1_ens.avg:.3f})'
+                    'Prec@5 ensemble {top5_ens.val:.3f} ({top5_ens.avg:.3f})'.format(
                     i, len(val_loader), batch_time=batch_time, loss=losses,
-                    top1=top1, top5=top5))
+                    top1=top1, top5=top5, top1_ens=top1_ens, top5_ens=top5_ens))
 
-        print(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
-            .format(top1=top1, top5=top5))
+        print(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Ensemble prec@1 {top1_ens.avg:.3f} Ensemble prec@5 {top5_ens.avg:.3f}'
+            .format(top1=top1, top5=top5, top1_ens=top1_ens, top5_ens=top5_ens))
 
     return top1.avg
 
