@@ -85,10 +85,10 @@ best_prec1 = 0
 
 checkpoint_paths = [
     "checkpoints/model_best.pth.tar",
-    "pruned_1/checkpoint.pth.tar",
-    "pruned_2/checkpoint.pth.tar",
-    "pruned_3/checkpoint.pth.tar",
-    "pruned_4/checkpoint.pth.tar",
+    "prune_1/checkpoint.pth.tar",
+    "prune_2/checkpoint.pth.tar",
+    "prune_3/checkpoint.pth.tar",
+    "prune_4/checkpoint.pth.tar",
 ]
 
 def main():
@@ -174,9 +174,10 @@ def main():
     
     # define loss function (criterion) and optimizer
     criterion = KLDivergenceLoss(temperature=args.temperature)
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+    # optimizer = torch.optim.SGD(model.parameters(), args.lr,
+    #                             momentum=args.momentum,
+    #                             weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     if args.use_onecycle:
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
                                                            epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,

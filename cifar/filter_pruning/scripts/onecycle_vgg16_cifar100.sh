@@ -60,7 +60,7 @@ python finetune.py --gamma 0.2 \
                    --save prune_5 &&
 # ensemble finetune
 echo "ENSEMBLE FINETUNE" &&
-python ensemble_finetune.py --lr 0.1 \
+python ensemble_finetune.py --lr 0.001 \
                             --batch-size 128 \
                             --gamma 0.2 \
                             --schedule 20 30 \
