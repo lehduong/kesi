@@ -98,10 +98,10 @@ if args.arch == 'resnet18':
 elif args.arch == 'resnet34':
     pruning_plan = [
         ('layer1.0', 0.1), ('layer1.1', 0.1), ('layer1.2', 0.1),
-        ('layer2.0', 0.0), ('layer2.1', 0.1), ('layer2.2', 0.1), ('layer2.3', 0.1),
-        ('layer3.0', 0.0), ('layer3.1', 0.1), ('layer3.2', 0.1), ('layer3.3', 0.1),
-        ('layer3.4', 0.1), ('layer3.5', 0.1),
-        ('layer4.0', 0.0), ('layer4.1', 0.0), ('layer4.2', 0.0)
+        ('layer2.0', 0.1), ('layer2.1', 0.1), ('layer2.2', 0.1), ('layer2.3', 0.1),
+        ('layer3.0', 0.2), ('layer3.1', 0.2), ('layer3.2', 0.2), ('layer3.3', 0.2),
+        ('layer3.4', 0.2), ('layer3.5', 0.2),
+        ('layer4.0', 0.3), ('layer4.1', 0.3), ('layer4.2', 0.3)
     ]
 else:
     raise ValueError("Expect arch to be one of [resnet18, resnet34] but got {}".format(args.arch))
