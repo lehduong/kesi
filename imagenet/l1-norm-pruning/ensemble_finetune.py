@@ -177,7 +177,7 @@ def main():
     # optimizer = torch.optim.SGD(model.parameters(), args.lr,
     #                             momentum=args.momentum,
     #                             weight_decay=args.weight_decay)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     if args.use_onecycle:
         lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
                                                            epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,

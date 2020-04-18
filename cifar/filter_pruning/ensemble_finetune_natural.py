@@ -142,7 +142,7 @@ if args.cuda:
 # lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
 #                                               milestones=args.schedule,
 #                                               gamma=args.gamma)
-optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+optimizer = optim.Adam(model.parameters(), lr=args.lr)
 lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
                                                      epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
                                                      final_div_factor=100)
