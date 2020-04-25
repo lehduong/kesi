@@ -210,7 +210,7 @@ def main():
             'epoch': epoch + 1,
             'arch': args.arch,
             'state_dict': model.state_dict(),
-            'best_prec1': best_prec1,
+            'best_prec1': prec1,
             'optimizer' : optimizer.state_dict(),
             'cfg': cfg
         }, is_best, args.save)
