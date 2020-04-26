@@ -100,7 +100,7 @@ elif args.arch == 'resnet110':
                     ('layer3.0',0.0), ('layer3.1',0.3), ('layer3.2',0.3), ('layer3.3',0.3), ('layer3.4',0.3), ('layer3.5',0.3), ('layer3.6',0.3), ('layer3.7',0.3), ('layer3.8',0.3), ('layer3.9',0.3),
                     ('layer3.10',0.3), ('layer3.11',0.3), ('layer3.12',0.3), ('layer3.13',0.3), ('layer3.14',0.3), ('layer3.15',0.3), ('layer3.16',0.3), ('layer3.17',0.3)
                    ]
-elif args.arch == 'preresnet110':
+elif args.arch == 'preresnet164':
     pruning_plan = [
                     ('layer1.0',0.1), ('layer1.1',0.1), ('layer1.2',0.1), ('layer1.3',0.1), ('layer1.4',0.1), ('layer1.5',0.1), ('layer1.6',0.1), ('layer1.7',0.1), ('layer1.8',0.1),
                     ('layer1.9',0.1), ('layer1.10',0.1), ('layer1.11',0.1), ('layer1.12',0.1), ('layer1.13',0.1), ('layer1.14',0.1), ('layer1.15',0.1), ('layer1.16',0.1), ('layer1.17',0.0),
