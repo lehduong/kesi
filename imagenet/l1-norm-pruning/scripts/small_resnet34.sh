@@ -1,7 +1,7 @@
 echo "PRUNE: 1" &&
 python residualprune.py /content/tiny-imagenet-200 \
                         --save prune_1 --arch resnet34 --test-batch-size 128 \
-                        --model checkpoints/best_model.pth.tar \
+                        --model checkpoints/model_best.pth.tar \
                         --num_classes 200 &&
 python main_finetune.py /content/tiny-imagenet-200 \
                         --save prune_1 --arch resnet34 --lr 0.001 --no-onecycle --num_classes 200 -b 128 --refine \
