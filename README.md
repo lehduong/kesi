@@ -15,7 +15,9 @@ The algorithm is summarized below:
 
 ## How to run
 
-Please checkout `example.pynb` for detail instruction for reproducing the results
+Please checkout `example.pynb` for detail instruction to reproduce the results on CIFAR. Instruction for running experiments on Tiny-Imagenet might be updated later.
+
+We also provided the scripts for repeative pruning and knowledge distillation (read Sec.5 in Colab example). **Disclamer**: you might have to modify the `checkpoint_paths` variable in `ensemble_finetune.py` to appropriate paths (and by that I mean `cifar/filter_pruning/ensemble_finetune.py`,  `cifar/weight_pruning/ensemble_finetune.py`,... depending on your chosen method/dataset).
 
 ## Results
 
