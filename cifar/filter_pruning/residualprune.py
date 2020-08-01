@@ -24,7 +24,7 @@ parser.add_argument('--save', default='', type=str, metavar='PATH',
 parser.add_argument('-v', default='A', type=str,
                     help='version of the model')
 
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 args = parser.parse_args()
 args.cuda = torch.cuda.is_available()
@@ -39,11 +39,12 @@ if args.model:
         print("=> loading checkpoint '{}'".format(args.model))
         checkpoint = torch.load(args.model, map_location='cpu')
         args.start_epoch = checkpoint['epoch']
-        best_prec1 = checkpoint['best_prec1']
-        model = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
+        prec1 = checkpoint['prec1']
+        model = arch_module.__dict__[args.arch](
+            dataset=args.dataset, cfg=checkpoint['cfg'])
         model.load_state_dict(checkpoint['state_dict'])
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
-              .format(args.model, checkpoint['epoch'], best_prec1))
+              .format(args.model, checkpoint['epoch'], prec1))
     else:
         raise ValueError("No checkpoint found at '{}'".format(args.model))
 
@@ -53,6 +54,8 @@ if args.cuda:
 print('Pre-processing Successful!')
 
 # simple test model after Pre-processing prune (simple set BN scales to zeros)
+
+
 def test(model):
     kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
     if args.dataset == 'cifar10':
@@ -76,73 +79,96 @@ def test(model):
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             output = model(data)
-            pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
+            # get the index of the max log-probability
+            pred = output.data.max(1, keepdim=True)[1]
             correct += pred.eq(target.data.view_as(pred)).cpu().sum()
 
         print('\nTest set: Accuracy: {}/{} ({:.1f}%)\n'.format(
             correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
     return correct / float(len(test_loader.dataset))
 
+
 acc = test(model)
 
 if args.arch == 'resnet56':
     pruning_plan = [
-                    ('layer1.0',0.1), ('layer1.1',0.1), ('layer1.2',0.1), ('layer1.3',0.1), ('layer1.4',0.1), ('layer1.5',0.1), ('layer1.6',0.1), ('layer1.7',0.0), ('layer1.8',0.1),
-                    ('layer2.0',0.0), ('layer2.1',0.2), ('layer2.2',0.2), ('layer2.3',0.2), ('layer2.4',0.2), ('layer2.5',0.2), ('layer2.6',0.2), ('layer2.7',0.2), ('layer2.8',0.2),
-                    ('layer3.0',0.0), ('layer3.1',0.3), ('layer3.2',0.3), ('layer3.3',0.3), ('layer3.4',0.3), ('layer3.5',0.3), ('layer3.6',0.3), ('layer3.7',0.3), ('layer3.8',0.0)
-                   ]
+        ('layer1.0', 0.1), ('layer1.1', 0.1), ('layer1.2', 0.1), ('layer1.3', 0.1), ('layer1.4',
+                                                                                     0.1), ('layer1.5', 0.1), ('layer1.6', 0.1), ('layer1.7', 0.0), ('layer1.8', 0.1),
+        ('layer2.0', 0.0), ('layer2.1', 0.2), ('layer2.2', 0.2), ('layer2.3', 0.2), ('layer2.4',
+                                                                                     0.2), ('layer2.5', 0.2), ('layer2.6', 0.2), ('layer2.7', 0.2), ('layer2.8', 0.2),
+        ('layer3.0', 0.0), ('layer3.1', 0.3), ('layer3.2', 0.3), ('layer3.3', 0.3), ('layer3.4',
+                                                                                     0.3), ('layer3.5', 0.3), ('layer3.6', 0.3), ('layer3.7', 0.3), ('layer3.8', 0.0)
+    ]
 elif args.arch == 'resnet110':
     pruning_plan = [
-                    ('layer1.0',0.1), ('layer1.1',0.1), ('layer1.2',0.1), ('layer1.3',0.1), ('layer1.4',0.1), ('layer1.5',0.1), ('layer1.6',0.1), ('layer1.7',0.1), ('layer1.8',0.1),
-                    ('layer1.9',0.1), ('layer1.10',0.1), ('layer1.11',0.1), ('layer1.12',0.1), ('layer1.13',0.1), ('layer1.14',0.1), ('layer1.15',0.1), ('layer1.16',0.1), ('layer1.17',0.0),
-                    ('layer2.0',0.0), ('layer2.1',0.2), ('layer2.2',0.2), ('layer2.3',0.2), ('layer2.4',0.2), ('layer2.5',0.2), ('layer2.6',0.2), ('layer2.7',0.2), ('layer2.8',0.2),
-                    ('layer2.9',0.2), ('layer2.10',0.2), ('layer2.11',0.2), ('layer2.12',0.2), ('layer2.13',0.2), ('layer2.14',0.2), ('layer2.15',0.2), ('layer2.16',0.2), ('layer2.17',0.2), 
-                    ('layer3.0',0.0), ('layer3.1',0.3), ('layer3.2',0.3), ('layer3.3',0.3), ('layer3.4',0.3), ('layer3.5',0.3), ('layer3.6',0.3), ('layer3.7',0.3), ('layer3.8',0.3), ('layer3.9',0.3),
-                    ('layer3.10',0.3), ('layer3.11',0.3), ('layer3.12',0.3), ('layer3.13',0.3), ('layer3.14',0.3), ('layer3.15',0.3), ('layer3.16',0.3), ('layer3.17',0.3)
-                   ]
+        ('layer1.0', 0.1), ('layer1.1', 0.1), ('layer1.2', 0.1), ('layer1.3', 0.1), ('layer1.4',
+                                                                                     0.1), ('layer1.5', 0.1), ('layer1.6', 0.1), ('layer1.7', 0.1), ('layer1.8', 0.1),
+        ('layer1.9', 0.1), ('layer1.10', 0.1), ('layer1.11', 0.1), ('layer1.12', 0.1), ('layer1.13',
+                                                                                        0.1), ('layer1.14', 0.1), ('layer1.15', 0.1), ('layer1.16', 0.1), ('layer1.17', 0.0),
+        ('layer2.0', 0.0), ('layer2.1', 0.2), ('layer2.2', 0.2), ('layer2.3', 0.2), ('layer2.4',
+                                                                                     0.2), ('layer2.5', 0.2), ('layer2.6', 0.2), ('layer2.7', 0.2), ('layer2.8', 0.2),
+        ('layer2.9', 0.2), ('layer2.10', 0.2), ('layer2.11', 0.2), ('layer2.12', 0.2), ('layer2.13',
+                                                                                        0.2), ('layer2.14', 0.2), ('layer2.15', 0.2), ('layer2.16', 0.2), ('layer2.17', 0.2),
+        ('layer3.0', 0.0), ('layer3.1', 0.3), ('layer3.2', 0.3), ('layer3.3', 0.3), ('layer3.4',
+                                                                                     0.3), ('layer3.5', 0.3), ('layer3.6', 0.3), ('layer3.7', 0.3), ('layer3.8', 0.3), ('layer3.9', 0.3),
+        ('layer3.10', 0.3), ('layer3.11', 0.3), ('layer3.12', 0.3), ('layer3.13', 0.3), (
+            'layer3.14', 0.3), ('layer3.15', 0.3), ('layer3.16', 0.3), ('layer3.17', 0.3)
+    ]
 elif args.arch == 'preresnet164':
     pruning_plan = [
-                    ('layer1.0',0.1), ('layer1.1',0.1), ('layer1.2',0.1), ('layer1.3',0.1), ('layer1.4',0.1), ('layer1.5',0.1), ('layer1.6',0.1), ('layer1.7',0.1), ('layer1.8',0.1),
-                    ('layer1.9',0.1), ('layer1.10',0.1), ('layer1.11',0.1), ('layer1.12',0.1), ('layer1.13',0.1), ('layer1.14',0.1), ('layer1.15',0.1), ('layer1.16',0.1), ('layer1.17',0.0),
-                    ('layer2.0',0.0), ('layer2.1',0.2), ('layer2.2',0.2), ('layer2.3',0.2), ('layer2.4',0.2), ('layer2.5',0.2), ('layer2.6',0.2), ('layer2.7',0.2), ('layer2.8',0.2),
-                    ('layer2.9',0.2), ('layer2.10',0.2), ('layer2.11',0.2), ('layer2.12',0.2), ('layer2.13',0.2), ('layer2.14',0.2), ('layer2.15',0.2), ('layer2.16',0.2), ('layer2.17',0.2), 
-                    ('layer3.0',0.0), ('layer3.1',0.3), ('layer3.2',0.3), ('layer3.3',0.3), ('layer3.4',0.3), ('layer3.5',0.3), ('layer3.6',0.3), ('layer3.7',0.3), ('layer3.8',0.3), ('layer3.9',0.3),
-                    ('layer3.10',0.3), ('layer3.11',0.3), ('layer3.12',0.3), ('layer3.13',0.3), ('layer3.14',0.3), ('layer3.15',0.3), ('layer3.16',0.3), ('layer3.17',0.3)
-                   ]
+        ('layer1.0', 0.1), ('layer1.1', 0.1), ('layer1.2', 0.1), ('layer1.3', 0.1), ('layer1.4',
+                                                                                     0.1), ('layer1.5', 0.1), ('layer1.6', 0.1), ('layer1.7', 0.1), ('layer1.8', 0.1),
+        ('layer1.9', 0.1), ('layer1.10', 0.1), ('layer1.11', 0.1), ('layer1.12', 0.1), ('layer1.13',
+                                                                                        0.1), ('layer1.14', 0.1), ('layer1.15', 0.1), ('layer1.16', 0.1), ('layer1.17', 0.0),
+        ('layer2.0', 0.0), ('layer2.1', 0.2), ('layer2.2', 0.2), ('layer2.3', 0.2), ('layer2.4',
+                                                                                     0.2), ('layer2.5', 0.2), ('layer2.6', 0.2), ('layer2.7', 0.2), ('layer2.8', 0.2),
+        ('layer2.9', 0.2), ('layer2.10', 0.2), ('layer2.11', 0.2), ('layer2.12', 0.2), ('layer2.13',
+                                                                                        0.2), ('layer2.14', 0.2), ('layer2.15', 0.2), ('layer2.16', 0.2), ('layer2.17', 0.2),
+        ('layer3.0', 0.0), ('layer3.1', 0.3), ('layer3.2', 0.3), ('layer3.3', 0.3), ('layer3.4',
+                                                                                     0.3), ('layer3.5', 0.3), ('layer3.6', 0.3), ('layer3.7', 0.3), ('layer3.8', 0.3), ('layer3.9', 0.3),
+        ('layer3.10', 0.3), ('layer3.11', 0.3), ('layer3.12', 0.3), ('layer3.13', 0.3), (
+            'layer3.14', 0.3), ('layer3.15', 0.3), ('layer3.16', 0.3), ('layer3.17', 0.3)
+    ]
 elif args.arch == 'wrn_28_10':
     pruning_plan = [
-                    ('block1.layer.0',0.1), ('block1.layer.1',0.1), ('block1.layer.2',0.1), ('block1.layer.3',0.1),
-                    ('block2.layer.0',0.2), ('block2.layer.1',0.2), ('block2.layer.2',0.2), ('block2.layer.3',0.2),
-                    ('block3.layer.0',0.3), ('block3.layer.1',0.3), ('block3.layer.2',0.3), ('block3.layer.3',0.3),
-                   ]
+        ('block1.layer.0', 0.1), ('block1.layer.1',
+                                  0.1), ('block1.layer.2', 0.1), ('block1.layer.3', 0.1),
+        ('block2.layer.0', 0.2), ('block2.layer.1',
+                                  0.2), ('block2.layer.2', 0.2), ('block2.layer.3', 0.2),
+        ('block3.layer.0', 0.3), ('block3.layer.1',
+                                  0.3), ('block3.layer.2', 0.3), ('block3.layer.3', 0.3),
+    ]
 elif args.arch == 'wrn_16_8':
     pruning_plan = [
-                    ('block1.layer.0',0.1), ('block1.layer.1',0.1),
-                    ('block2.layer.0',0.2), ('block2.layer.1',0.2),
-                    ('block3.layer.0',0.3), ('block3.layer.1',0.3),
-                   ]
+        ('block1.layer.0', 0.1), ('block1.layer.1', 0.1),
+        ('block2.layer.0', 0.2), ('block2.layer.1', 0.2),
+        ('block3.layer.0', 0.3), ('block3.layer.1', 0.3),
+    ]
 else:
-    raise ValueError("Expect arch to be one of [resnet56, resnet110, wrn_28_10] but got {}".format(args.arch))
+    raise ValueError(
+        "Expect arch to be one of [resnet56, resnet110, wrn_28_10] but got {}".format(args.arch))
+
 
 def filter_pruning(model, pruning_plan):
     # get the cfg of pruned network
     cfg = []
     for block_name, prune_prob in pruning_plan:
         block = model.get_block(block_name)
-        conv_layers = list(filter(lambda layer: isinstance(layer, nn.Conv2d), block.modules()))
+        conv_layers = list(filter(lambda layer: isinstance(
+            layer, nn.Conv2d), block.modules()))
         out_channels = conv_layers[0].out_channels
         num_keep = int(out_channels*(1-prune_prob))
         cfg.append(num_keep)
     # construct pruned network
-    new_model = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=cfg) 
+    new_model = arch_module.__dict__[args.arch](dataset=args.dataset, cfg=cfg)
     # copy weight from original network to new network
     is_last_conv_pruned = False
-    mask = None # mask of pruned layer
+    mask = None  # mask of pruned layer
     for [m0, m1] in zip(model.modules(), new_model.modules()):
         if isinstance(m0, nn.Conv2d):
             is_channel_pruned = False
             pre_prune_shape = m1.weight.data.shape
-            # current layer is not modified 
+            # current layer is not modified
             if (m0.in_channels == m1.in_channels) and (m0.out_channels == m1.out_channels):
                 m1.weight.data = m0.weight.data.clone()
                 is_last_conv_pruned = False
@@ -153,18 +179,20 @@ def filter_pruning(model, pruning_plan):
             # as the is_last_conv_pruned flag would be set to False and can be rewrite if aforemention situation happend
             if m0.in_channels > m1.in_channels:
                 # the filter would always
-                channel_idx = np.squeeze(np.argwhere(np.asarray(mask.cpu().numpy())))
+                channel_idx = np.squeeze(np.argwhere(
+                    np.asarray(mask.cpu().numpy())))
                 if channel_idx.size == 1:
                     channel_idx = np.resize(channel_idx, (1,))
                 w = m0.weight.data[:, channel_idx.tolist(), :, :].clone()
                 m1.weight.data = w.clone()
                 is_last_conv_pruned = False
-                is_channel_pruned = True  
+                is_channel_pruned = True
             # CASE 2: CURRENT layer's filters are pruned
             # copy kept filter weight to new model
             if m0.out_channels > m1.out_channels:
-                mask = create_l1_norm_mask(m0, m1.out_channels) 
-                filter_idx = np.squeeze(np.argwhere(np.asarray(mask.cpu().numpy())))
+                mask = create_l1_norm_mask(m0, m1.out_channels)
+                filter_idx = np.squeeze(np.argwhere(
+                    np.asarray(mask.cpu().numpy())))
                 if filter_idx.size == 1:
                     filter_idx = np.resize(filter_idx, (1,))
                 if not is_channel_pruned:
@@ -182,12 +210,14 @@ def filter_pruning(model, pruning_plan):
                 print(after_prune_shape)
                 print(m0)
                 print(m1)
-                raise Exception('Pruned weight and its prepruned weight have mismatch shape')
+                raise Exception(
+                    'Pruned weight and its prepruned weight have mismatch shape')
         # adjust batchnorm with corresponding filter
         elif isinstance(m0, nn.BatchNorm2d):
             # if last conv layer is pruned then modify the batchnorm as well
             if is_last_conv_pruned:
-                filter_idx = np.squeeze(np.argwhere(np.asarray(mask.cpu().numpy())))
+                filter_idx = np.squeeze(np.argwhere(
+                    np.asarray(mask.cpu().numpy())))
                 if filter_idx.size == 1:
                     filter_idx = np.resize(filter_idx, (1,))
                 m1.weight.data = m0.weight.data[filter_idx.tolist()].clone()
@@ -206,6 +236,7 @@ def filter_pruning(model, pruning_plan):
             m1.bias.data = m0.bias.data.clone()
     return new_model
 
+
 def create_l1_norm_mask(layer, num_keep):
     """
         Create a 1d tensor with binary value, the i-th element is set to 1
@@ -217,21 +248,22 @@ def create_l1_norm_mask(layer, num_keep):
     """
     out_channels = layer.out_channels
     weight_copy = layer.weight.data.abs().clone().cpu().numpy()
-    L1_norm = np.sum(weight_copy, axis=(1,2,3))
+    L1_norm = np.sum(weight_copy, axis=(1, 2, 3))
     arg_max = np.argsort(L1_norm)
     arg_max_rev = arg_max[::-1][:num_keep]
     # create mask
     mask = torch.zeros(out_channels)
     mask[arg_max_rev.tolist()] = 1
-    return mask 
+    return mask
+
 
 if __name__ == '__main__':
     newmodel = filter_pruning(model, pruning_plan)
     torch.save({
-                'cfg': newmodel.cfg,
-                'state_dict': newmodel.state_dict()
-               },
-               os.path.join(args.save, 'pruned.pth.tar'))
+        'cfg': newmodel.cfg,
+        'state_dict': newmodel.state_dict()
+    },
+        os.path.join(args.save, 'pruned.pth.tar'))
     print(newmodel)
     num_parameters = sum([param.nelement() for param in newmodel.parameters()])
     model = newmodel

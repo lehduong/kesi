@@ -130,11 +130,11 @@ if args.resume:
         print("=> loading checkpoint '{}'".format(args.resume))
         checkpoint = torch.load(args.resume)
         args.start_epoch = checkpoint['epoch']
-        best_prec1 = checkpoint['best_prec1']
+        prec1 = checkpoint['prec1']
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         print("=> loaded checkpoint '{}' (epoch {}) Prec1: {:f}"
-              .format(args.resume, checkpoint['epoch'], best_prec1))
+              .format(args.resume, checkpoint['epoch'], prec1))
     else:
         print("=> no checkpoint found at '{}'".format(args.resume))
 
