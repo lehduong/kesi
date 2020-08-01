@@ -30,7 +30,7 @@ python train.py -a resnet110 \
 --wd 1e-4 \
 --save checkpoints/pretrained/cifar100/resnet110 && \
 
-python train.py -a preresnet110 \
+python train.py -a preresnet164 \
 -d cifar10 \
 --epochs 300 \
 --schedule 150 225 \
@@ -38,7 +38,7 @@ python train.py -a preresnet110 \
 --wd 1e-4 \
 --save checkpoints/pretrained/cifar10/preresnet110 && \
 
-python train.py -a preresnet110 \
+python train.py -a preresnet164 \
 -d cifar100 \
 --epochs 300 \
 --schedule 150 225 \
