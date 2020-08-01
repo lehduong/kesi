@@ -76,4 +76,4 @@ python train.py -a wrn_16_8 \
 --schedule 60 120 160 \
 --gamma 0.2 \
 --wd 5e-4 \
---save checkpoints/pretrained/cifar100/wrn_16_8 && \
+--save checkpoints/pretrained/cifar100/wrn_16_8
