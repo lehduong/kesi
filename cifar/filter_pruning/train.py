@@ -16,7 +16,7 @@ import models
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch Slimming CIFAR training')
-parser.add_argument('--dataset', type=str, default='cifar10',
+parser.add_argument('--dataset', '-d', type=str, default='cifar10',
                     help='training dataset (default: cifar10)')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
@@ -28,6 +28,10 @@ parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                     help='learning rate (default: 0.1)')
+parser.add_argument('--schedule', type=int, nargs='+', default=[150, 225],
+                    help='Decrease learning rate at these epochs.')
+parser.add_argument('--gamma', type=float, default=0.1,
+                    help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                     help='SGD momentum (default: 0.9)')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
@@ -42,10 +46,8 @@ parser.add_argument('--log-interval', type=int, default=100, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--save', default='./logs', type=str, metavar='PATH',
                     help='path to save prune model (default: current directory)')
-parser.add_argument('--arch', default='resnet', type=str,
+parser.add_argument('--arch', '-a', default='resnet56', type=str,
                     help='architecture to use')
-parser.add_argument('--depth', default=110, type=int,
-                    help='depth of the neural network')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -100,13 +102,16 @@ else:
         ])),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
-model = models.__dict__[args.arch](dataset=args.dataset, depth=args.depth)
+model = models.__dict__[args.arch](dataset=args.dataset)
 
 if args.cuda:
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr,
                       momentum=args.momentum, weight_decay=args.weight_decay)
+lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer,
+                                              milestones=args.schedule,
+                                              gamma=args.gamma)
 
 if args.resume:
     if os.path.isfile(args.resume):
@@ -175,9 +180,7 @@ def save_checkpoint(state, is_best, filepath):
 
 best_prec1 = 0.
 for epoch in range(args.start_epoch, args.epochs):
-    if epoch in [args.epochs*0.5, args.epochs*0.75]:
-        for param_group in optimizer.param_groups:
-            param_group['lr'] *= 0.1
+    lr_scheduler.step()
     train(epoch)
     prec1 = test()
     is_best = prec1 > best_prec1
