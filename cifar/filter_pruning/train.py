@@ -188,6 +188,7 @@ for epoch in range(args.start_epoch, args.epochs):
     save_checkpoint({
         'epoch': epoch + 1,
         'state_dict': model.state_dict(),
+        'prec1': prec1,
         'best_prec1': best_prec1,
         'optimizer': optimizer.state_dict(),
         'cfg': model.cfg
