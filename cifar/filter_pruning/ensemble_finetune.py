@@ -37,7 +37,7 @@ parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
                     help='SGD momentum (default: 0.9)')
 parser.add_argument('--schedule', type=int, nargs='+', default=[20, 30],
                     help='Decrease learning rate at these epochs.')
-parser.add_argument('--gamma', type=float, default=0.2, 
+parser.add_argument('--gamma', type=float, default=0.2,
                     help='LR is multiplied by gamma on schedule.')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 0)')
@@ -51,20 +51,21 @@ parser.add_argument('--log-interval', type=int, default=100, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--save', default='./logs', type=str, metavar='PATH',
                     help='path to save prune model (default: current directory)')
-parser.add_argument('--arch', default='vgg', type=str, 
+parser.add_argument('--arch', default='vgg', type=str,
                     help='architecture to use')
 parser.add_argument('--depth', default=16, type=int,
                     help='depth of the neural network')
-
-checkpoint_paths = ['checkpoints/cifar100/resnet-110/model_best.pth.tar', 
-                    'prune_1/checkpoint.pth.tar',
-                    'prune_2/checkpoint.pth.tar',
-                    'prune_3/checkpoint.pth.tar',
-                    'prune_4/checkpoint.pth.tar',
-                    'prune_5/checkpoint.pth.tar',
-                    ]
+parser.add_argument('--teachers', type=str, nargs='+', default=['checkpoints/pretrained/cifar10/resnet56/model_best.pth.tar',
+                                                                'checkpoints/pruned/cifar10/resnet56/prune_1/checkpoint.pth.tar',
+                                                                'checkpoints/pruned/cifar10/resnet56/prune_2/checkpoint.pth.tar',
+                                                                'checkpoints/pruned/cifar10/resnet56/prune_3/checkpoint.pth.tar',
+                                                                'checkpoints/pruned/cifar10/resnet56/prune_4/checkpoint.pth.tar',
+                                                                'checkpoints/pruned/cifar10/resnet56/prune_5/checkpoint.pth.tar',
+                                                                ],
+                    help='path to teacher networks.')
 
 args = parser.parse_args()
+checkpoint_paths = args.teachers
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 
 torch.manual_seed(args.seed)
@@ -78,36 +79,40 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 if args.dataset == 'cifar10':
     train_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10('./data', train=True, download=True,
-                       transform=transforms.Compose([
-                           transforms.Pad(4),
-                           transforms.RandomCrop(32),
-                           transforms.RandomHorizontalFlip(),
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-                       ])),
+                         transform=transforms.Compose([
+                             transforms.Pad(4),
+                             transforms.RandomCrop(32),
+                             transforms.RandomHorizontalFlip(),
+                             transforms.ToTensor(),
+                             transforms.Normalize(
+                                 (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                         ])),
         batch_size=args.batch_size, shuffle=True, **kwargs)
     test_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10('./data', train=False, transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-                       ])),
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465),
+                                 (0.2023, 0.1994, 0.2010))
+        ])),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 else:
     train_loader = torch.utils.data.DataLoader(
         datasets.CIFAR100('./data', train=True, download=True,
-                       transform=transforms.Compose([
-                           transforms.Pad(4),
-                           transforms.RandomCrop(32),
-                           transforms.RandomHorizontalFlip(),
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-                       ])),
+                          transform=transforms.Compose([
+                              transforms.Pad(4),
+                              transforms.RandomCrop(32),
+                              transforms.RandomHorizontalFlip(),
+                              transforms.ToTensor(),
+                              transforms.Normalize(
+                                  (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+                          ])),
         batch_size=args.batch_size, shuffle=True, **kwargs)
     test_loader = torch.utils.data.DataLoader(
         datasets.CIFAR100('./data', train=False, transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-                       ])),
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465),
+                                 (0.2023, 0.1994, 0.2010))
+        ])),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
 model = model_module.__dict__[args.arch](dataset=args.dataset)
@@ -116,20 +121,23 @@ models = []
 if args.refine:
     print("=> loading checkpoint '{}'".format(args.refine))
     checkpoint = torch.load(args.refine)
-    model = model_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
+    model = model_module.__dict__[args.arch](
+        dataset=args.dataset, cfg=checkpoint['cfg'])
     model.load_state_dict(checkpoint['state_dict'])
     for param in model.parameters():
-      param.requires_grad = True 
+        param.requires_grad = True
     for path in checkpoint_paths:
         print("=> loading ensemble '{}'".format(path))
         checkpoint = torch.load(path, map_location=torch.device('cpu'))
-        tmp = model_module.__dict__[args.arch](dataset=args.dataset, cfg=checkpoint['cfg'])
+        tmp = model_module.__dict__[args.arch](
+            dataset=args.dataset, cfg=checkpoint['cfg'])
         tmp.load_state_dict(checkpoint['state_dict'])
         tmp.eval()
         for param in tmp.parameters():
-            param.requires_grad = False  
+            param.requires_grad = False
         models.append(tmp)
-        best_prec1 = checkpoint['acc'] if 'acc' in checkpoint.keys() else checkpoint['best_prec1']
+        best_prec1 = checkpoint['acc'] if 'acc' in checkpoint.keys(
+        ) else checkpoint['best_prec1']
         print("=> loaded model '{}' (epoch {}) Prec1: {:f}"
               .format(path, checkpoint['epoch'], best_prec1))
 
@@ -139,14 +147,15 @@ if args.cuda:
         m.cuda()
 
 #optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-# lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, 
+# lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer,
 #                                               milestones=args.schedule,
 #                                               gamma=args.gamma)
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
 lr_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, div_factor=10,
-                                                     epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
-                                                     final_div_factor=100)
+                                             epochs=args.epochs, steps_per_epoch=len(train_loader), pct_start=0.1,
+                                             final_div_factor=100)
 criterion = KLDivergenceLoss(temperature=args.temperature)
+
 
 def train(epoch):
     model.train()
@@ -163,10 +172,11 @@ def train(epoch):
         with torch.no_grad():
             for model_tc in models:
                 output_tc.append(model_tc(data))
-        loss = reduce(lambda acc, elem: acc + criterion(output, elem), output_tc, 0)/len(models) 
+        loss = reduce(lambda acc, elem: acc +
+                      criterion(output, elem), output_tc, 0)/len(models)
         loss.backward()
         optimizer.step()
-        avg_loss += loss.item() 
+        avg_loss += loss.item()
         pred = output.data.max(1, keepdim=True)[1]
         train_acc += pred.eq(target.data.view_as(pred)).cpu().sum()
         if batch_idx % args.log_interval == 0:
@@ -174,6 +184,7 @@ def train(epoch):
                 epoch+1, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
         lr_scheduler.step()
+
 
 def test():
     model.eval()
@@ -187,18 +198,23 @@ def test():
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
             output = model(data)
-            test_loss += F.cross_entropy(output, target, size_average=False) # sum up batch loss
-            pred = output.data.max(1, keepdim=True)[1] # get the index of the max log-probability
+            # sum up batch loss
+            test_loss += F.cross_entropy(output, target, size_average=False)
+            # get the index of the max log-probability
+            pred = output.data.max(1, keepdim=True)[1]
             correct += pred.eq(target.data.view_as(pred)).cpu().sum()
             test_loss /= len(test_loader.dataset)
-            
+
             # ensemble predictions
             output_ens = torch.zeros_like(output)
             for m in models:
-                tmp_output = m(data) 
+                tmp_output = m(data)
                 output_ens += softmax(tmp_output)
-            test_loss_ens += F.cross_entropy(output_ens, target, size_average=False) # sum up batch loss
-            pred_ens = output_ens.data.max(1, keepdim=True)[1] # get the index of the max log-probability
+            # sum up batch loss
+            test_loss_ens += F.cross_entropy(output_ens,
+                                             target, size_average=False)
+            # get the index of the max log-probability
+            pred_ens = output_ens.data.max(1, keepdim=True)[1]
             correct_ens += pred_ens.eq(target.view_as(pred)).cpu().sum()
             test_loss_ens /= len(test_loader.dataset)
 
@@ -208,10 +224,13 @@ def test():
             100. * correct_ens / len(test_loader.dataset)))
     return correct / float(len(test_loader.dataset))
 
+
 def save_checkpoint(state, is_best, filepath):
     torch.save(state, os.path.join(filepath, 'checkpoint.pth.tar'))
     if is_best:
-        shutil.copyfile(os.path.join(filepath, 'checkpoint.pth.tar'), os.path.join(filepath, 'model_best.pth.tar'))
+        shutil.copyfile(os.path.join(filepath, 'checkpoint.pth.tar'),
+                        os.path.join(filepath, 'model_best.pth.tar'))
+
 
 best_prec1 = 0.
 for epoch in range(args.start_epoch, args.epochs):
