@@ -63,8 +63,8 @@ python ensemble_finetune.py --lr 0.001 \
 --refine checkpoints/pruned/cifar100/wrn_16_8/prune_5/checkpoint.pth.tar \
 --dataset cifar100 --save checkpoints/pruned/cifar100/wrn_16_8/snapshot_ensemble --arch wrn_16_8 \
 --teachers checkpoints/pruned/cifar100/wrn_16_8/prune_5/checkpoint.pth.tar \
-checkpoints/pruned/cifar100/wrn_16_8/prune_4/checkpoint.pth.tar\
-checkpoints/pruned/cifar100/wrn_16_8/prune_3/checkpoint.pth.tar\
-checkpoints/pruned/cifar100/wrn_16_8/prune_2/checkpoint.pth.tar\
-checkpoints/pruned/cifar100/wrn_16_8/prune_1/checkpoint.pth.tar\
+checkpoints/pruned/cifar100/wrn_16_8/prune_4/checkpoint.pth.tar \
+checkpoints/pruned/cifar100/wrn_16_8/prune_3/checkpoint.pth.tar \
+checkpoints/pruned/cifar100/wrn_16_8/prune_2/checkpoint.pth.tar \
+checkpoints/pruned/cifar100/wrn_16_8/prune_1/checkpoint.pth.tar \
 checkpoints/pretrained/cifar100/wrn_16_8/model_best.pth.tar
