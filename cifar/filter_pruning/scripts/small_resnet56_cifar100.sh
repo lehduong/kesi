@@ -76,7 +76,7 @@ python ensemble_finetune.py --lr 0.1 \
 --schedule 20 30 \
 --wd 1e-4 \
 --refine checkpoints/pruned/cifar100/resnet56/prune_5/checkpoint.pth.tar \
---dataset cifar100 --save checkpoints/pruned/cifar100/resnet56/snapshot_ensemble --arch resnet56\
+--dataset cifar100 --save checkpoints/pruned/cifar100/resnet56/snapshot_ensemble --arch resnet56 \
 --teachers checkpoints/pruned/cifar100/resnet56/prune_5/checkpoint.pth.tar \
 checkpoints/pruned/cifar100/resnet56/prune_4/checkpoint.pth.tar \
 checkpoints/pruned/cifar100/resnet56/prune_3/checkpoint.pth.tar \
