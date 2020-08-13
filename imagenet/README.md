@@ -1,6 +1,6 @@
 # Tiny-ImageNet
 
-This directory contains a pytorch implementation of the ImageNet experiments for six pruning methods:  
+This directory contains a pytorch implementation of the Tiny-ImageNet experiments for two pruning methods:  
 
 1. [L1-norm based channel pruning](https://arxiv.org/abs/1608.08710)
 2. [Non-structured weight-level pruning](https://arxiv.org/abs/1506.02626)

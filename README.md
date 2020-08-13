@@ -1,5 +1,5 @@
 # Gift from Iterative Network Pruning 
-This repository contains the code for reproducing the results, and trained ImageNet models for paper [Paying more attention to Snapshot of Iterative Pruning: Improving Model Compression via Ensemble Distillation](https://arxiv.org/pdf/2006.11487.pdf).
+This repository contains the code for reproducing the results for paper [Paying more attention to Snapshot of Iterative Pruning: Improving Model Compression via Ensemble Distillation](https://arxiv.org/pdf/2006.11487.pdf) (BMVC 2020).
 
 ## Summary
 

@@ -1,59 +1,70 @@
 # prune 1
 echo "PRUNE 1" &&
 python residualprune.py --dataset cifar100 \
-                        --arch resnet110 \
-                        --model checkpoints/cifar100/resnet-110/model_best.pth.tar \
-                        --save prune_1 &&
-python finetune.py --refine prune_1/pruned.pth.tar \
-                    --dataset cifar100 \
-                    --arch resnet110 \
-                    --save prune_1 &&
+--arch resnet110 \
+--model checkpoints/pretrained/cifar100/resnet110/model_best.pth.tar \
+--save checkpoints/pruned/cifar100/resnet110/prune_1 &&
+# finetune 1
+python finetune.py  --refine checkpoints/pruned/cifar100/resnet110/prune_1/pruned.pth.tar \
+--dataset cifar100 \
+--arch resnet110 \
+--save checkpoints/pruned/cifar100/resnet110/prune_1 &&
 # prune 2
 echo "PRUNE 2" &&
 python residualprune.py --dataset cifar100 \
-                        --arch resnet110 \
-                        --model prune_1/checkpoint.pth.tar \
-                        --save prune_2 &&
-python finetune.py --refine prune_2/pruned.pth.tar \
-                    --dataset cifar100 \
-                    --arch resnet110 \
-                    --save prune_2 &&
+--arch resnet110 \
+--model checkpoints/pruned/cifar100/resnet110/prune_1/checkpoint.pth.tar \
+--save checkpoints/pruned/cifar100/resnet110/prune_2 &&
+# finetune 2
+python finetune.py  --refine checkpoints/pruned/cifar100/resnet110/prune_2/pruned.pth.tar \
+--dataset cifar100 \
+--arch resnet110 \
+--save checkpoints/pruned/cifar100/resnet110/prune_2 &&
 # prune 3
 echo "PRUNE 3" &&
 python residualprune.py --dataset cifar100 \
-                        --arch resnet110 \
-                        --model prune_2/checkpoint.pth.tar \
-                        --save prune_3 &&
-python finetune.py --refine prune_3/pruned.pth.tar \
-                    --dataset cifar100 \
-                    --arch resnet110 \
-                    --save prune_3 &&
+--arch resnet110 \
+--model checkpoints/pruned/cifar100/resnet110/prune_2/checkpoint.pth.tar \
+--save checkpoints/pruned/cifar100/resnet110/prune_3 &&
+# finetune 3
+python finetune.py  --refine checkpoints/pruned/cifar100/resnet110/prune_3/pruned.pth.tar \
+--dataset cifar100 \
+--arch resnet110 \
+--save checkpoints/pruned/cifar100/resnet110/prune_3 &&
 # prune 4
 echo "PRUNE 4" &&
 python residualprune.py --dataset cifar100 \
-                        --arch resnet110 \
-                        --model prune_3/checkpoint.pth.tar \
-                        --save prune_4 &&
-python finetune.py --refine prune_4/pruned.pth.tar \
-                    --dataset cifar100 \
-                    --arch resnet110 \
-                    --save prune_4 &&
+--arch resnet110 \
+--model checkpoints/pruned/cifar100/resnet110/prune_3/checkpoint.pth.tar \
+--save checkpoints/pruned/cifar100/resnet110/prune_4 &&
+# finetune 4
+python finetune.py  --refine checkpoints/pruned/cifar100/resnet110/prune_4/pruned.pth.tar \
+--dataset cifar100 \
+--arch resnet110 \
+--save checkpoints/pruned/cifar100/resnet110/prune_4 &&
 # prune 5
 echo "PRUNE 5" &&
 python residualprune.py --dataset cifar100 \
-                        --arch resnet110 \
-                        --model prune_4/checkpoint.pth.tar \
-                        --save prune_5 &&
-python finetune.py --refine prune_5/pruned.pth.tar \
-                    --dataset cifar100 \
-                    --arch resnet110 \
-                    --save prune_5 &&
+--arch resnet110 \
+--model checkpoints/pruned/cifar100/resnet110/prune_4/checkpoint.pth.tar \
+--save checkpoints/pruned/cifar100/resnet110/prune_5 &&
+# finetune 5
+python finetune.py  --refine checkpoints/pruned/cifar100/resnet110/prune_5/pruned.pth.tar \
+--dataset cifar100 \
+--arch resnet110 \
+--save checkpoints/pruned/cifar100/resnet110/prune_5 &&
 # ensemble finetune
 echo "ENSEMBLE FINETUNE" &&
 python ensemble_finetune.py --lr 0.001 \
-                            --batch-size 128 \
-                            --gamma 0.2 \
-                            --schedule 20 30 \
-                            --wd 1e-4 \
-                            --refine prune_5/checkpoint.pth.tar \
-                            --dataset cifar100 --save snapshot_ensemble --arch resnet110
+--batch-size 128 \
+--gamma 0.2 \
+--schedule 20 30 \
+--wd 1e-4 \
+--refine checkpoints/pruned/cifar100/resnet110/prune_5/checkpoint.pth.tar \
+--dataset cifar100 --save checkpoints/pruned/cifar100/resnet110/snapshot_ensemble --arch resnet110 \
+--teachers checkpoints/pruned/cifar100/resnet110/prune_5/checkpoint.pth.tar \
+checkpoints/pruned/cifar100/resnet110/prune_4/checkpoint.pth.tar \
+checkpoints/pruned/cifar100/resnet110/prune_3/checkpoint.pth.tar \
+checkpoints/pruned/cifar100/resnet110/prune_2/checkpoint.pth.tar \
+checkpoints/pruned/cifar100/resnet110/prune_1/checkpoint.pth.tar \
+checkpoints/pretrained/cifar100/resnet110/model_best.pth.tar
